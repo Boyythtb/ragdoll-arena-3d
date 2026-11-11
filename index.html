@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Ragdoll Arena" />
 
@@ -38,7 +38,7 @@
       <div id="loading-screen" class="loading-screen">
         <div class="loading-box">
           <span class="loading-bounce">🤼</span>
-          <div class="tboy-studio-badge">TBOY STUDIO</div>
+          <div class="tboy-studio-badge">TBOY STUDIO 3D</div>
           <h2 class="loading-brand">Ragdoll <span>Arena 3D</span></h2>
           <div class="loading-track">
             <div id="loading-bar-inner" class="loading-fill"></div>
@@ -49,29 +49,12 @@
 
       <!-- 2. MAIN MENU -->
       <div id="main-menu" class="tboy-menu">
-        <div class="bb-left-column">
-          <div class="bb-brand-box">
-            <div class="bb-logo-group">
-              <span class="bb-logo-ragdoll">RAGDOLL</span>
-              <span class="bb-logo-arena">ARENA</span>
-            </div>
-            <span class="bb-sub-pill">🤼 Đấu Vật Khớp Uốn Dẻo Vui Nhộn 3D</span>
-          </div>
-
-          <div class="bb-menu-stack">
-            <button class="bb-pill-btn primary" id="btn-play-ai">
-              <span>🤖</span> Đấu Với Bot
-            </button>
-            <button class="bb-pill-btn cyan" id="btn-open-create-room">
-              <span>⚡</span> Tạo Phòng Online (1v1)
-            </button>
-            <button class="bb-pill-btn" id="btn-open-join-room">
-              <span>🔑</span> Vào Phòng Bằng Mã
-            </button>
-          </div>
-        </div>
-
-        <div class="bb-top-bar-right">
+        <!-- THANH TOP BAR CÂN ĐỐI 2 BÊN -->
+        <div class="tboy-top-bar">
+          <button class="bb-tips-pill" id="btn-toggle-tips">
+            <span>💡</span>
+            <span class="tips-pill-text">Mẹo Thi Đấu</span>
+          </button>
           <button class="bb-signin-pill" id="btn-change-name">
             <span class="user-icon">👤</span>
             <span id="display-player-name">Đô Vật #1024</span>
@@ -79,34 +62,32 @@
           </button>
         </div>
 
-        <!-- MẸO THI ĐẤU MẶC ĐỊNH THU GỌN -->
-        <div class="bb-right-column">
-          <div class="bb-card collapsed" id="card-tips">
-            <div class="bb-card-header" id="btn-toggle-tips">
-              <div class="bb-card-title">
-                <span>💡</span> MẸO THI ĐẤU
-              </div>
-              <button class="bb-toggle-btn" id="btn-toggle-tips-icon" title="Mở rộng / Thu gọn">▸</button>
+        <!-- CỘT NỘI DUNG CHÍNH (KHÔNG BỊ ĐÈ LÊN SÀN ĐẤU) -->
+        <div class="bb-left-column">
+          <div class="bb-brand-card">
+            <div class="tboy-studio-pill">TBOY STUDIO 3D</div>
+            <div class="bb-logo-group">
+              <span class="bb-logo-ragdoll">RAGDOLL</span>
+              <span class="bb-logo-arena">ARENA 3D</span>
             </div>
-            <div class="bb-tip-content" id="tips-content">
-              <div class="bb-tip-item">
-                <span>🎮</span>
-                <span>Dùng phím <b>WASD / Mũi tên</b> hoặc <b>Kéo Chuột</b> để di chuyển.</span>
-              </div>
-              <div class="bb-tip-item">
-                <span>🥊</span>
-                <span>Nhấn <b>Space (Cách)</b> hoặc <b>Click Chuột Trái</b> để tung cú đấm hất văng đối thủ!</span>
-              </div>
-              <div class="bb-tip-item">
-                <span>🏆</span>
-                <span>Đấm đối thủ văng khỏi võ đài để ghi điểm (Chạm 5 điểm để thắng)!</span>
-              </div>
-            </div>
+            <span class="bb-sub-pill">🤼 Đấu Vật Khớp Uốn Dẻo Vui Nhộn 3D</span>
+          </div>
+
+          <div class="bb-menu-stack">
+            <button class="bb-pill-btn primary" id="btn-play-ai">
+              <span class="btn-icon">🤖</span> Đấu Với Bot (Solo)
+            </button>
+            <button class="bb-pill-btn cyan" id="btn-open-create-room">
+              <span class="btn-icon">⚡</span> Tạo Phòng Online (1v1)
+            </button>
+            <button class="bb-pill-btn" id="btn-open-join-room">
+              <span class="btn-icon">🔑</span> Vào Phòng Bằng Mã
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- 3. HUD SCOREBOARD -->
+      <!-- 3. HUD SCOREBOARD KHI VÀO TRẬN -->
       <div id="hud" class="hud-top-bar hidden">
         <div class="match-hud-pill">
           <div class="hud-player">
@@ -132,16 +113,51 @@
             <div class="hud-avatar-box">🤖</div>
           </div>
 
-          <button class="hud-exit-btn" id="btn-exit-match" title="Thoát">✕</button>
+          <button class="hud-exit-btn" id="btn-exit-match" title="Thoát ra Menu">✕</button>
         </div>
       </div>
 
-      <!-- NÚT ĐẤM TRÊN MÀN HÌNH CẢM ỨNG DI ĐỘNG -->
+      <!-- NÚT ĐẤM CẢM ỨNG TRÊN MOBILE -->
       <div id="mobile-punch-btn" class="mobile-punch-btn hidden">🥊</div>
 
       <!-- BANNER KNOCKOUT -->
       <div id="ko-banner">
         <span>💥</span> RING OUT!
+      </div>
+
+      <!-- MODAL DIALOG MẸO THI ĐẤU (THAY THẾ BẢNG CŨ GÂY ĐÈ MÀN HÌNH) -->
+      <div id="modal-tips" class="tboy-modal-overlay hidden">
+        <div class="tboy-dialog tips-dialog">
+          <div class="tips-dialog-header">
+            <div class="tboy-dialog-title" style="display: flex; align-items: center; gap: 8px;">
+              <span>💡</span> MẸO THI ĐẤU VÕ ĐÀI
+            </div>
+            <button class="tips-close-btn" id="btn-close-tips">✕</button>
+          </div>
+          <div class="bb-tip-content">
+            <div class="bb-tip-item">
+              <span class="tip-ico">🎮</span>
+              <span>Dùng phím <b>WASD</b> hoặc <b>Phím Mũi tên</b> để di chuyển võ sĩ quanh võ đài.</span>
+            </div>
+            <div class="bb-tip-item">
+              <span class="tip-ico">🥊</span>
+              <span>Nhấn <b>Space (Cách)</b> hoặc <b>Click chuột trái</b> (hoặc nút 🥊 trên điện thoại) để tung cú đấm smash hất văng đối thủ!</span>
+            </div>
+            <div class="bb-tip-item">
+              <span class="tip-ico">🤼</span>
+              <span><b>Húc người & Đẩy đối thủ:</b> Chạy lao thẳng vào đối thủ để đẩy dồn họ về sát mép đài!</span>
+            </div>
+            <div class="bb-tip-item">
+              <span class="tip-ico">➰</span>
+              <span><b>Dây đài đàn hồi:</b> Va vào dây đài sẽ bật lò xo "Boing!" vọt ngược lại, tạo đà lao vào húc bay đối phương!</span>
+            </div>
+            <div class="bb-tip-item">
+              <span class="tip-ico">🏆</span>
+              <span><b>Ring Out:</b> Đấm hoặc húc đối thủ rớt khỏi võ đài xuống sàn để ghi 1 điểm. Đô vật nào chạm mốc <b>5 điểm</b> trước sẽ giành cúp vô địch!</span>
+            </div>
+          </div>
+          <button class="bb-pill-btn primary" id="btn-ack-tips" style="justify-content: center; margin-top: 6px;">Đã hiểu! Vào đấu ngay 🚀</button>
+        </div>
       </div>
 
       <!-- MODAL TẠO PHÒNG -->
@@ -150,8 +166,8 @@
           <div class="tboy-dialog-title">TẠO PHÒNG REALTIME</div>
           <div class="tboy-dialog-sub">Gửi mã phòng này cho bạn bè để cùng vào thi đấu:</div>
           <div class="tboy-code-tag" id="label-room-code">----</div>
-          <div style="font-size: 13px; color: #0284c7; font-weight: 700;">Đang chờ đối thủ vào đài...</div>
-          <button class="bb-pill-btn" id="btn-cancel-create" style="justify-content: center;">Hủy Phòng</button>
+          <div style="font-size: 13.5px; color: #0284c7; font-weight: 750;">Đang chờ đối thủ vào võ đài...</div>
+          <button class="bb-pill-btn" id="btn-cancel-create" style="justify-content: center; margin-top: 6px;">Hủy Phòng</button>
         </div>
       </div>
 
@@ -162,11 +178,11 @@
           <div class="tboy-dialog-sub">Nhập mã PIN 4 ký tự do bạn bè chia sẻ:</div>
           <div class="tboy-input-box">
             <label class="tboy-input-label">Mã phòng</label>
-            <input type="text" id="input-join-code" class="tboy-input" placeholder="VD: ABCD" maxlength="6" style="text-transform: uppercase; font-size: 20px; text-align: center; letter-spacing: 4px;" />
+            <input type="text" id="input-join-code" class="tboy-input" placeholder="VD: ABCD" maxlength="6" style="text-transform: uppercase; font-size: 22px; text-align: center; letter-spacing: 5px;" />
           </div>
-          <div style="display: flex; gap: 10px; margin-top: 6px;">
+          <div style="display: flex; gap: 10px; margin-top: 8px;">
             <button class="bb-pill-btn" id="btn-cancel-join" style="flex: 1; justify-content: center;">Hủy</button>
-            <button class="bb-pill-btn primary" id="btn-confirm-join" style="flex: 1; justify-content: center;">Vào Chiến</button>
+            <button class="bb-pill-btn primary" id="btn-confirm-join" style="flex: 1; justify-content: center;">Vào Chiến 🥊</button>
           </div>
         </div>
       </div>
