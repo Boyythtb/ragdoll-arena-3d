@@ -153,25 +153,30 @@
         <!-- CẦN ĐIỀU KHIỂN JOYSTICK TRỰC QUAN BÊN TRÁI -->
         <div id="joystick-zone" class="joystick-zone" title="Kéo để di chuyển">
           <div id="joystick-base" class="joystick-base">
+            <span class="joy-arrow top">▲</span>
+            <span class="joy-arrow bottom">▼</span>
+            <span class="joy-arrow left">◄</span>
+            <span class="joy-arrow right">►</span>
             <div class="joystick-ring"></div>
             <div id="joystick-thumb" class="joystick-thumb"></div>
           </div>
-          <span class="joystick-caption">DI CHUYỂN</span>
         </div>
 
         <!-- HƯỚNG DẪN PHÍM TẮT NHỎ TRÊN PC (TỰ ẨN TRÊN MOBILE) -->
         <div class="desktop-key-hint-pill">
           <span><b>WASD</b> Di chuyển</span> ·
-          <span><b>SHIFT</b> Giơ tay chạy nhanh</span> ·
+          <span><b>SHIFT</b> Giơ tay tăng tốc</span> ·
           <span><b>SPACE / Click</b> Đấm</span>
         </div>
 
-        <!-- 2 NÚT HÀNH ĐỘNG BÊN PHẢI: CHẠY NHANH + ĐẤM -->
+        <!-- 2 NÚT HÀNH ĐỘNG XẾP THEO VÒNG CUNG NGÓN TAY CÁI BÊN PHẢI -->
         <div class="action-buttons-ragdoll">
-          <button id="btn-sprint" class="btn-game-act btn-sprint" aria-label="Chạy Nhanh">
+          <button id="btn-sprint" class="btn-game-act btn-sprint" aria-label="Tăng Tốc">
             <span class="act-keycap">SHIFT</span>
-            <span class="act-icon">🙌⚡</span>
-            <span class="act-label">CHẠY NHANH</span>
+            <svg class="act-svg-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+            <span class="act-label">TĂNG TỐC</span>
           </button>
 
           <button id="btn-punch" class="btn-game-act btn-punch" aria-label="Tung Cú Đấm">

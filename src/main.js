@@ -106,13 +106,13 @@ function updateCameraTarget() {
       targetCamLookAt.set(-1.8, 0.4, 0);
     }
   } else {
-    // TRONG TRẬN ĐẤU: Chính diện cân đối toàn sân rộng hết cỡ
-    let targetDist = 17.8;
-    if (aspect < 1.4) targetDist = 19.2;
+    // TRONG TRẬN ĐẤU: Chính diện cân đối toàn sân rộng rãi, chừa không gian cho bộ nút 2 góc
+    let targetDist = 19.6;
+    if (aspect < 1.4) targetDist = 20.8;
     if (aspect < 1.0) targetDist = Math.max(9.2 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect), 28.0);
 
-    targetCamPos.set(0, targetDist * 0.64, targetDist * 0.74);
-    targetCamLookAt.set(0, 0.4, 0);
+    targetCamPos.set(0, targetDist * 0.65, targetDist * 0.76);
+    targetCamLookAt.set(0, 0.0, 0.3);
   }
 }
 
@@ -540,11 +540,11 @@ function handleRingOut(winner) {
   if (winner === 'p1') {
     p1Score++;
     p1ScoreEl.innerText = p1Score;
-    koBanner.innerHTML = '<span>💥</span> RING OUT! BẠN ĐÃ THẮNG HIỆP NÀY!';
+    koBanner.innerHTML = '<span>💥</span> RING OUT! BẠN GHI ĐIỂM!';
   } else {
     p2Score++;
     p2ScoreEl.innerText = p2Score;
-    koBanner.innerHTML = '<span>🤖</span> RING OUT! ĐỐI THỦ THẮNG HIỆP NÀY!';
+    koBanner.innerHTML = '<span>🤖</span> RING OUT! ĐỐI THỦ GHI ĐIỂM!';
   }
 
   if (gameMode === 'ONLINE' && myRole === 'p1') {

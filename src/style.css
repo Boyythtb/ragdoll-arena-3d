@@ -575,41 +575,51 @@ html, body {
   z-index: 50;
 }
 
-/* JOYSTICK DI CHUYỂN BÊN TRÁI (HIỂN THỊ RÕ RÀNG TRÊN MỌI MÀN HÌNH) */
+/* JOYSTICK DI CHUYỂN BÊN TRÁI (CHUẨN HÌNH TRÒN 1:1 HIỆN ĐẠI) */
 .joystick-zone {
   position: absolute;
   bottom: 24px;
   left: 28px;
-  width: 118px;
-  height: 118px;
+  width: 116px;
+  height: 116px;
   pointer-events: auto;
   touch-action: none;
   user-select: none;
   z-index: 55;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
 .joystick-base {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.94) 0%, rgba(241, 245, 249, 0.82) 100%);
-  border: 3px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16), inset 0 2px 6px rgba(255, 255, 255, 0.8);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.88) 0%, rgba(241, 245, 249, 0.72) 100%);
+  backdrop-filter: blur(12px);
+  border: 2.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 12px 32px rgba(30, 27, 75, 0.14), inset 0 2px 8px rgba(255, 255, 255, 0.9);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
 }
 
+.joy-arrow {
+  position: absolute;
+  font-size: 9px;
+  color: rgba(30, 27, 75, 0.28);
+  pointer-events: none;
+  line-height: 1;
+}
+.joy-arrow.top { top: 8px; }
+.joy-arrow.bottom { bottom: 8px; }
+.joy-arrow.left { left: 9px; }
+.joy-arrow.right { right: 9px; }
+
 .joystick-ring {
   position: absolute;
-  width: 74px;
-  height: 74px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
-  border: 1.5px dashed rgba(148, 163, 184, 0.7);
+  border: 1.5px dashed rgba(30, 27, 75, 0.16);
   pointer-events: none;
 }
 
@@ -617,21 +627,11 @@ html, body {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #fde047 0%, #f59e0b 70%, #d97706 100%);
-  box-shadow: 0 6px 16px rgba(217, 119, 6, 0.45), inset 0 2px 4px rgba(255, 255, 255, 0.7);
+  background: linear-gradient(145deg, #38bdf8 0%, #0284c7 100%);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 8px 18px rgba(2, 132, 199, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.65);
   pointer-events: none;
   will-change: transform;
-}
-
-.joystick-caption {
-  margin-top: 4px;
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: 0.8px;
-  color: rgba(30, 27, 75, 0.65);
-  background: rgba(255, 255, 255, 0.75);
-  padding: 2px 8px;
-  border-radius: 9999px;
 }
 
 /* GỢI Ý PHÍM TẮT CHO PC Ở DƯỚI GIỮA */
@@ -640,7 +640,7 @@ html, body {
   bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(10px);
   padding: 6px 16px;
   border-radius: 9999px;
@@ -656,12 +656,13 @@ html, body {
   font-weight: 850;
 }
 
-/* 2 NÚT HÀNH ĐỘNG BÊN PHẢI: CHẠY NHANH (SHIFT) & ĐẤM (SPACE) */
+/* 2 NÚT HÀNH ĐỘNG XẾP VÒNG CUNG NGÓN TAY CÁI GÓC DƯỚI PHẢI (KHÔNG CHE CỘT ĐÀI) */
 .action-buttons-ragdoll {
   position: absolute;
-  bottom: 24px;
-  right: 28px;
+  bottom: 22px;
+  right: 26px;
   display: flex;
+  flex-direction: column;
   align-items: flex-end;
   gap: 14px;
   pointer-events: auto;
@@ -676,8 +677,8 @@ html, body {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18), inset 0 2px 6px rgba(255, 255, 255, 0.5);
+  border: 3px solid rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16), inset 0 2px 6px rgba(255, 255, 255, 0.55);
   cursor: pointer;
   user-select: none;
   touch-action: manipulation;
@@ -692,15 +693,16 @@ html, body {
 }
 
 .btn-sprint {
-  width: 78px;
-  height: 78px;
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 55%, #ea580c 100%);
-  box-shadow: 0 10px 24px rgba(245, 158, 11, 0.4), inset 0 2px 6px rgba(255, 255, 255, 0.5);
+  width: 72px;
+  height: 72px;
+  margin-right: 10px; /* Vòng cung nhẹ theo ngón tay cái */
+  background: linear-gradient(145deg, #fbbf24 0%, #f59e0b 65%, #d97706 100%);
+  box-shadow: 0 10px 24px rgba(245, 158, 11, 0.42), inset 0 2px 6px rgba(255, 255, 255, 0.55);
 }
 
 .btn-sprint.active-sprint {
-  background: linear-gradient(135deg, #fef08a 0%, #f59e0b 60%, #dc2626 100%);
-  box-shadow: 0 0 28px rgba(245, 158, 11, 0.85), inset 0 2px 6px rgba(255, 255, 255, 0.8);
+  background: linear-gradient(145deg, #fef08a 0%, #f59e0b 55%, #dc2626 100%);
+  box-shadow: 0 0 28px rgba(245, 158, 11, 0.9), inset 0 2px 6px rgba(255, 255, 255, 0.85);
   transform: scale(1.08);
   animation: pulse-sprint 0.5s infinite alternate ease-in-out;
 }
@@ -711,10 +713,10 @@ html, body {
 }
 
 .btn-punch {
-  width: 92px;
-  height: 92px;
-  background: linear-gradient(135deg, #fb7185 0%, #f43f5e 60%, #e11d48 100%);
-  box-shadow: 0 12px 28px rgba(244, 63, 94, 0.45), inset 0 2px 6px rgba(255, 255, 255, 0.5);
+  width: 88px;
+  height: 88px;
+  background: linear-gradient(145deg, #fb7185 0%, #f43f5e 60%, #e11d48 100%);
+  box-shadow: 0 12px 28px rgba(244, 63, 94, 0.45), inset 0 2px 6px rgba(255, 255, 255, 0.55);
 }
 
 .act-keycap {
@@ -731,8 +733,17 @@ html, body {
 }
 
 .act-icon {
-  font-size: 26px;
+  font-size: 24px;
   line-height: 1.1;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
+}
+
+.act-svg-icon {
+  width: 26px;
+  height: 26px;
+  color: #ffffff;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28));
+  margin-bottom: 1px;
 }
 
 .btn-punch .act-icon {
@@ -740,10 +751,11 @@ html, body {
 }
 
 .act-label {
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 950;
   letter-spacing: 0.4px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
 }
 
 /* BANNER KNOCKOUT / RING OUT */
@@ -756,9 +768,9 @@ html, body {
   background: rgba(30, 27, 75, 0.94);
   backdrop-filter: blur(16px);
   color: #ffffff;
-  padding: 16px 32px;
+  padding: 14px 30px;
   border-radius: 9999px;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 950;
   display: flex;
   align-items: center;
@@ -768,6 +780,7 @@ html, body {
   pointer-events: none;
   transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   border: 2px solid rgba(255, 255, 255, 0.2);
+  white-space: nowrap;
 }
 
 #ko-banner.show {
@@ -1093,47 +1106,58 @@ html, body {
   }
 
   .joystick-zone {
-    bottom: 16px;
-    left: 20px;
+    bottom: 18px;
+    left: 22px;
     width: 100px;
     height: 100px;
   }
 
   .joystick-ring {
-    width: 62px;
-    height: 62px;
+    width: 60px;
+    height: 60px;
   }
 
   .joystick-thumb {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
   }
 
   .action-buttons-ragdoll {
-    bottom: 16px;
-    right: 20px;
+    bottom: 18px;
+    right: 22px;
     gap: 12px;
   }
 
   .btn-sprint {
-    width: 68px;
-    height: 68px;
+    width: 64px;
+    height: 64px;
+    margin-right: 6px;
   }
 
   .btn-punch {
-    width: 80px;
-    height: 80px;
+    width: 78px;
+    height: 78px;
   }
 
   .act-icon {
-    font-size: 22px;
+    font-size: 20px;
+  }
+
+  .act-svg-icon {
+    width: 22px;
+    height: 22px;
   }
 
   .btn-punch .act-icon {
-    font-size: 26px;
+    font-size: 28px;
   }
 
   .act-label {
-    font-size: 8.5px;
+    font-size: 8px;
+  }
+
+  #ko-banner {
+    font-size: 16px;
+    padding: 12px 24px;
   }
 }
