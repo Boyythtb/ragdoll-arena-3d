@@ -168,18 +168,18 @@ export class RagdollCharacter {
     if (this.isPunching || this.isRagdoll || this.isFallingOff || this.punchCooldown > 0) return;
     this.isPunching = true;
     this.punchTime = 0;
-    this.punchCooldown = 0.32; // Giãn cách giữa 2 cú đấm
+    this.punchCooldown = 0.28;
 
     // Lao người về phía trước một lực hoạt hình nhẹ (Punch Lunge)
     const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.root.rotation.y);
-    this.velocity.addScaledVector(forward, 5.5);
+    this.velocity.addScaledVector(forward, 4.5);
   }
 
   // NHẬN ĐÒN SMASH -> CHUYỂN TRẠNG THÁI RAGDOLL UỐN DẺO
   takeHit(impactVec) {
     this.isRagdoll = true;
     this.isPunching = false;
-    this.ragdollTimer = 1.35; // 1.35s uốn éo, lăn lộn hài hước
+    this.ragdollTimer = 1.3; // 1.3s uốn éo, lăn lộn hài hước
     this.velocity.copy(impactVec);
 
     // Tạo vận tốc xoay nhào lộn tưng tưng ngẫu nhiên
@@ -201,7 +201,7 @@ export class RagdollCharacter {
 
     // 1. TRẠNG THÁI RƠI KHỎI VÕ ĐÀI XUỐNG ĐẤT (RING OUT FALL)
     if (this.isFallingOff) {
-      this.velocity.y -= 26 * dt; // Trọng lực mạnh rơi xuống
+      this.velocity.y -= 26 * dt; // Trọng lực rơi
       this.root.position.addScaledVector(this.velocity, dt);
 
       // Nhào lộn xoay tít mù khi rớt đài
@@ -227,12 +227,12 @@ export class RagdollCharacter {
       this.root.position.addScaledVector(this.velocity, dt);
 
       // Ma sát trượt trên sàn và sức cản không khí
-      this.velocity.x *= 0.93;
-      this.velocity.z *= 0.93;
+      this.velocity.x *= 0.94;
+      this.velocity.z *= 0.94;
       this.velocity.y -= 22 * dt; // Trọng lực
 
-      // Nếu vẫn còn nằm trên võ đài (mặt sàn võ đài y = 0)
-      const onRing = Math.abs(this.root.position.x) <= 6.35 && Math.abs(this.root.position.z) <= 6.35;
+      // Nếu vẫn còn nằm trong phạm vi võ đài (mặt sàn võ đài y = 0, mép dây = 5.85)
+      const onRing = Math.abs(this.root.position.x) <= 5.85 && Math.abs(this.root.position.z) <= 5.85;
       if (onRing) {
         if (this.root.position.y < 0) {
           this.root.position.y = 0;
@@ -245,7 +245,7 @@ export class RagdollCharacter {
           }
         }
       } else {
-        // Đã văng ra ngoài mép đài -> rơi xuống vực!
+        // Đã văng qua dây ra ngoài mép đài -> Rơi tự do xuống vực!
         this.isFallingOff = true;
         return;
       }
@@ -281,13 +281,12 @@ export class RagdollCharacter {
     }
 
     // 3. DI CHUYỂN BÌNH THƯỜNG VỚI HIỆU ỨNG WOBBLE UỐN LƯỢN
-    // Áp dụng vận tốc quán tính nhẹ
     this.root.position.x += this.velocity.x * dt;
     this.root.position.z += this.velocity.z * dt;
     this.velocity.x *= 0.85;
     this.velocity.z *= 0.85;
 
-    const isMoving = Math.abs(moveInput.x) > 0.1 || Math.abs(moveInput.z) > 0.1;
+    const isMoving = Math.abs(moveInput.x) > 0.05 || Math.abs(moveInput.z) > 0.05;
     if (isMoving) {
       this.walkCycle += dt * 15;
       const targetAngle = Math.atan2(moveInput.x, moveInput.z);
@@ -299,7 +298,6 @@ export class RagdollCharacter {
       this.root.rotation.y += diff * Math.min(dt * 18, 1.0);
 
       // Nghiêng người theo hướng chạy (Dynamic Bank/Lean như Gang Beasts)
-      const speed = Math.hypot(moveInput.x, moveInput.z);
       this.tiltX = THREE.MathUtils.lerp(this.tiltX, Math.sin(this.walkCycle) * 0.18 + 0.18, dt * 10);
       this.tiltZ = THREE.MathUtils.lerp(this.tiltZ, Math.cos(this.walkCycle) * 0.22, dt * 10);
 
@@ -345,22 +343,21 @@ export class RagdollCharacter {
     // 4. ANIMATION ĐẤM SMASH UỐN DẺO CỰC LỰC
     if (this.isPunching) {
       this.punchTime += dt;
-      const duration = 0.28; // Tốc độ cú đấm
+      const duration = 0.28;
       const progress = this.punchTime / duration;
 
       if (progress < 0.45) {
         // Vung nắm đấm ra trước cực căng
         const pNorm = progress / 0.45;
         this.rightArmPivot.rotation.x = THREE.MathUtils.lerp(0.18, -Math.PI / 2 - 0.2, pNorm);
-        this.rightArmPivot.position.z = THREE.MathUtils.lerp(0, 0.55, pNorm);
-        // Găng đấm to ra hoạt hình (Cartoon Squash)
-        if (this.rightGlove) this.rightGlove.scale.set(1.35, 1.35, 1.35);
+        this.rightArmPivot.position.z = THREE.MathUtils.lerp(0, 0.60, pNorm);
+        if (this.rightGlove) this.rightGlove.scale.set(1.4, 1.4, 1.4);
         this.torsoGroup.rotation.y = THREE.MathUtils.lerp(0, 0.45, pNorm);
       } else if (progress <= 1.0) {
         // Thu tay về
         const pNorm = (progress - 0.45) / 0.55;
         this.rightArmPivot.rotation.x = THREE.MathUtils.lerp(-Math.PI / 2 - 0.2, 0.18, pNorm);
-        this.rightArmPivot.position.z = THREE.MathUtils.lerp(0.55, 0, pNorm);
+        this.rightArmPivot.position.z = THREE.MathUtils.lerp(0.60, 0, pNorm);
         if (this.rightGlove) this.rightGlove.scale.lerp(new THREE.Vector3(1, 1, 1), pNorm);
         this.torsoGroup.rotation.y = THREE.MathUtils.lerp(0.45, 0, pNorm);
       } else {
@@ -376,13 +373,5 @@ export class RagdollCharacter {
     this.squashY = THREE.MathUtils.lerp(this.squashY, 1.0, dt * 10);
     this.squashXZ = THREE.MathUtils.lerp(this.squashXZ, 1.0, dt * 10);
     this.torsoGroup.scale.set(this.squashXZ, this.squashY, this.squashXZ);
-  }
-
-  // Tọa độ bao găng tay phải khi vung đấm để tính Hitbox
-  getPunchHitbox() {
-    const worldPos = new THREE.Vector3();
-    this.rightArmPivot.getWorldPosition(worldPos);
-    const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.root.rotation.y);
-    return worldPos.add(forward.multiplyScalar(0.85));
   }
 }
