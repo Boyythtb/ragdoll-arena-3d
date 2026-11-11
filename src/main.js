@@ -17,11 +17,17 @@ const randId = Math.floor(1000 + Math.random() * 9000);
 let playerName = localStorage.getItem('tboy_ragdoll_name') || `Đô Vật #${randId}`;
 document.getElementById('display-player-name').innerText = playerName;
 
+let playerColorHex = parseInt(localStorage.getItem('tboy_ragdoll_color') || '0x0284c7', 16);
+
 let p1Score = 0;
 let p2Score = 0;
 const targetScore = 5;
 let isRoundEnding = false;
 let screenShake = 0;
+let sprintToggleTimer = 0;
+let sprintTrailTimer = 0;
+const btnPunch = document.getElementById('btn-punch');
+const btnSprint = document.getElementById('btn-sprint');
 
 // THREE.JS SCENE SETUP
 const container = document.getElementById('canvas-container');
@@ -30,8 +36,10 @@ scene.background = new THREE.Color(0xfdf2f8);
 scene.fog = new THREE.FogExp2(0xfdf2f8, 0.007);
 
 const camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.1, 150);
-const baseCamPos = new THREE.Vector3(0, 15.5, 17.5);
-const baseCamLookAt = new THREE.Vector3(0, 0.4, 0);
+const currentCamPos = new THREE.Vector3(-5.5, 11.2, 14.5);
+const currentCamLookAt = new THREE.Vector3(-1.5, 0.4, 0);
+const targetCamPos = new THREE.Vector3(-5.5, 11.2, 14.5);
+const targetCamLookAt = new THREE.Vector3(-1.5, 0.4, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -42,7 +50,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
 container.appendChild(renderer.domElement);
 
-// HỆ THỐNG CHIẾU SÁNG ẤM ÁP
+// HỆ THỐNG CHIẾU SÁNG ẤM ÁP BIRDIE BASH STYLE
 const hemiLight = new THREE.HemisphereLight(0xfffbeb, 0xfce7f3, 1.35);
 hemiLight.position.set(0, 30, 0);
 scene.add(hemiLight);
@@ -72,49 +80,57 @@ scene.add(arena);
 const particles = new ParticleFX(scene);
 
 // TẠO 2 ĐÔ VẬT RAGDOLL UỐN DẺO
-const fighterP1 = new RagdollCharacter(scene, 0x0284c7, true);   // P1 Sky Blue
-const fighterP2 = new RagdollCharacter(scene, 0xf43f5e, false);  // P2 Rose Red
+const fighterP1 = new RagdollCharacter(scene, playerColorHex, true);
+const fighterP2 = new RagdollCharacter(scene, 0xf43f5e, false);
 
 resetFighterPositions();
 
-// CĂN CHỈNH CAMERA RỘNG TOÀN CẢNH (EXPANSIVE CINEMATIC ARENA)
-function updateCameraAspect() {
+// CĂN CHỈNH CAMERA RỘNG CHO CẢ TRANG CHỜ & TRONG TRẬN ĐẤU
+function updateCameraTarget() {
   const width = window.innerWidth;
   const height = window.innerHeight;
   const aspect = width / height;
   camera.aspect = aspect;
-
-  // Căn chỉnh khoảng cách camera để võ đài rộng nhất, hoành tráng nhất có thể
-  // Sân võ đài 13.5m sẽ chiếm trọn vẹn và đẹp mắt trên màn hình ngang
-  let targetDist = 18.0;
-  if (aspect < 1.4) {
-    targetDist = 19.5;
-  }
-  if (aspect < 1.0) {
-    // Nếu màn hình dọc (desktop cửa sổ nhỏ)
-    targetDist = Math.max(9.2 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect), 28.0);
-  }
-
-  // Góc nghiêng camera 38 độ từ trên xuống nhìn toàn cảnh bao quát võ đài
-  baseCamPos.set(0, targetDist * 0.64, targetDist * 0.74);
-  camera.position.copy(baseCamPos);
-  camera.lookAt(baseCamLookAt);
   camera.updateProjectionMatrix();
 
   renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-}
-updateCameraAspect();
-window.addEventListener('resize', updateCameraAspect);
 
-// TỰ ĐỘNG KHÓA MÀN HÌNH NGANG CHO ĐIỆN THOẠI
+  if (gameMode === 'MENU') {
+    // TRANG CHỜ LOBBY: Góc nghiêng 3/4 Isometric đẩy sàn đấu sang phải một chút để nhường chỗ cột Menu bên trái
+    if (width < 950) {
+      targetCamPos.set(-3.2, 11.4, 14.5);
+      targetCamLookAt.set(-1.6, 0.4, 0);
+    } else {
+      targetCamPos.set(-5.8, 11.2, 14.8);
+      targetCamLookAt.set(-1.8, 0.4, 0);
+    }
+  } else {
+    // TRONG TRẬN ĐẤU: Chính diện cân đối toàn sân rộng hết cỡ
+    let targetDist = 17.8;
+    if (aspect < 1.4) targetDist = 19.2;
+    if (aspect < 1.0) targetDist = Math.max(9.2 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect), 28.0);
+
+    targetCamPos.set(0, targetDist * 0.64, targetDist * 0.74);
+    targetCamLookAt.set(0, 0.4, 0);
+  }
+}
+
+updateCameraTarget();
+currentCamPos.copy(targetCamPos);
+currentCamLookAt.copy(targetCamLookAt);
+camera.position.copy(currentCamPos);
+camera.lookAt(currentCamLookAt);
+
+window.addEventListener('resize', updateCameraTarget);
+
+// KHÓA CỨNG XOAY NGANG CHO THIẾT BỊ DI ĐỘNG
 function requestLandscape() {
   if (screen.orientation && screen.orientation.lock) {
     screen.orientation.lock('landscape').catch(() => {});
   }
 }
 
-// NÚT YÊU CẦU XOAY NGANG TRÊN MÀN HÌNH KHÓA
 document.getElementById('btn-force-landscape')?.addEventListener('click', async () => {
   sounds.playClick();
   requestLandscape();
@@ -124,14 +140,21 @@ document.getElementById('btn-force-landscape')?.addEventListener('click', async 
   }
 });
 
-// HỆ THỐNG ĐIỀU KHIỂN ĐA NĂNG (BÀN PHÍM + CHUỘT / CẢM ỨNG KÉO DRAG)
-const keys = { w: false, a: false, s: false, d: false, space: false };
+// ===================================================
+// HỆ THỐNG ĐIỀU KHIỂN ĐA NĂNG (JOYSTICK + BÀN PHÍM + ĐẤM + CHẠY NHANH)
+// ===================================================
+const keys = { w: false, a: false, s: false, d: false, space: false, shift: false };
+
 window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'w' || k === 'arrowup') keys.w = true;
   if (k === 'a' || k === 'arrowleft') keys.a = true;
   if (k === 's' || k === 'arrowdown') keys.s = true;
   if (k === 'd' || k === 'arrowright') keys.d = true;
+  if (e.key === 'Shift') {
+    if (!keys.shift && gameMode !== 'MENU') sounds.playSprint();
+    keys.shift = true;
+  }
   if (k === ' ') {
     keys.space = true;
     handlePunch();
@@ -144,62 +167,148 @@ window.addEventListener('keyup', (e) => {
   if (k === 'a' || k === 'arrowleft') keys.a = false;
   if (k === 's' || k === 'arrowdown') keys.s = false;
   if (k === 'd' || k === 'arrowright') keys.d = false;
+  if (e.key === 'Shift') keys.shift = false;
   if (k === ' ') keys.space = false;
 });
 
-// VIRTUAL JOYSTICK & TOUCH/MOUSE DRAG
-let isDraggingPointer = false;
-let pointerStartX = 0;
-let pointerStartY = 0;
-let pointerMoveVec = { x: 0, z: 0 };
-let pointerStartTime = 0;
+// VIRTUAL JOYSTICK BÊN TRÁI (HỖ TRỢ ĐA ĐIỂM MULTI-TOUCH & CHUỘT)
+const joystickZone = document.getElementById('joystick-zone');
+const joystickThumb = document.getElementById('joystick-thumb');
+const joystickInput = { x: 0, z: 0 };
+let joystickTouchId = null;
+let joystickCenter = { x: 0, y: 0 };
+const maxJoyRadius = 38;
 
-window.addEventListener('pointerdown', (e) => {
-  if (gameMode === 'MENU' || e.target.closest('#main-menu') || e.target.closest('.tboy-modal-overlay') || e.target.closest('#hud') || e.target.closest('#mobile-punch-btn')) return;
-  isDraggingPointer = true;
-  pointerStartX = e.clientX;
-  pointerStartY = e.clientY;
-  pointerStartTime = performance.now();
-  pointerMoveVec.x = 0;
-  pointerMoveVec.z = 0;
-});
-
-window.addEventListener('pointermove', (e) => {
-  if (!isDraggingPointer) return;
-  const dx = e.clientX - pointerStartX;
-  const dy = e.clientY - pointerStartY;
+function updateJoystickFromClientPos(clientX, clientY) {
+  const dx = clientX - joystickCenter.x;
+  const dy = clientY - joystickCenter.y;
   const dist = Math.hypot(dx, dy);
-  if (dist > 12) {
-    const factor = Math.min(dist / 65, 1.0);
-    pointerMoveVec.x = (dx / dist) * factor;
-    pointerMoveVec.z = (dy / dist) * factor;
+  const clamped = Math.min(dist, maxJoyRadius);
+  const angle = Math.atan2(dy, dx);
+
+  const tx = Math.cos(angle) * clamped;
+  const ty = Math.sin(angle) * clamped;
+
+  if (joystickThumb) {
+    joystickThumb.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
+  }
+
+  if (dist > 6) {
+    const norm = clamped / maxJoyRadius;
+    joystickInput.x = Math.cos(angle) * norm;
+    joystickInput.z = Math.sin(angle) * norm;
   } else {
-    pointerMoveVec.x = 0;
-    pointerMoveVec.z = 0;
+    joystickInput.x = 0;
+    joystickInput.z = 0;
   }
-});
+}
 
-window.addEventListener('pointerup', (e) => {
-  if (isDraggingPointer) {
-    const dx = e.clientX - pointerStartX;
-    const dy = e.clientY - pointerStartY;
-    const elapsed = performance.now() - pointerStartTime;
-    if (elapsed < 250 && Math.hypot(dx, dy) < 14) {
-      handlePunch();
+function resetJoystick() {
+  joystickTouchId = null;
+  joystickInput.x = 0;
+  joystickInput.z = 0;
+  if (joystickThumb) {
+    joystickThumb.style.transform = 'translate3d(0px, 0px, 0)';
+  }
+}
+
+if (joystickZone) {
+  // Touch Multi-touch cho Mobile
+  joystickZone.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (joystickTouchId !== null) return;
+    const touch = e.changedTouches[0];
+    joystickTouchId = touch.identifier;
+    const rect = joystickZone.getBoundingClientRect();
+    joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    updateJoystickFromClientPos(touch.clientX, touch.clientY);
+  }, { passive: false });
+
+  window.addEventListener('touchmove', (e) => {
+    if (joystickTouchId === null) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === joystickTouchId) {
+        updateJoystickFromClientPos(t.clientX, t.clientY);
+        break;
+      }
     }
-  }
-  isDraggingPointer = false;
-  pointerMoveVec.x = 0;
-  pointerMoveVec.z = 0;
-});
+  }, { passive: true });
 
-document.getElementById('mobile-punch-btn').addEventListener('touchstart', (e) => {
-  e.preventDefault();
+  window.addEventListener('touchend', (e) => {
+    if (joystickTouchId === null) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === joystickTouchId) {
+        resetJoystick();
+        break;
+      }
+    }
+  });
+
+  // Chuột kéo Joystick trên Laptop/PC
+  let isMouseJoy = false;
+  joystickZone.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    isMouseJoy = true;
+    const rect = joystickZone.getBoundingClientRect();
+    joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    updateJoystickFromClientPos(e.clientX, e.clientY);
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (isMouseJoy) updateJoystickFromClientPos(e.clientX, e.clientY);
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (isMouseJoy) {
+      isMouseJoy = false;
+      resetJoystick();
+    }
+  });
+}
+
+// 2 NÚT HÀNH ĐỘNG BÊN PHẢI: CHẠY NHANH (GIƠ TAY LÊN TRỜI) & ĐẤM
+
+if (btnPunch) {
+  const triggerPunchEvt = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    btnPunch.classList.add('pressed');
+    setTimeout(() => btnPunch.classList.remove('pressed'), 120);
+    handlePunch();
+  };
+  btnPunch.addEventListener('touchstart', triggerPunchEvt, { passive: false });
+  btnPunch.addEventListener('mousedown', triggerPunchEvt);
+}
+
+if (btnSprint) {
+  const triggerSprintEvt = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    btnSprint.classList.add('pressed');
+    setTimeout(() => btnSprint.classList.remove('pressed'), 120);
+
+    if (sprintToggleTimer > 0) {
+      sprintToggleTimer = 0;
+      btnSprint.classList.remove('active-sprint');
+    } else {
+      sprintToggleTimer = 4.0; // Kích hoạt tăng tốc giơ tay chạy 4 giây
+      sounds.playSprint();
+      btnSprint.classList.add('active-sprint');
+    }
+  };
+  btnSprint.addEventListener('touchstart', triggerSprintEvt, { passive: false });
+  btnSprint.addEventListener('mousedown', triggerSprintEvt);
+}
+
+// CLICK CHUỘT TRÊN SÀN ĐẤU ĐỂ ĐẤM (NẾU KHÔNG BẤM VÀO NÚT HAY JOYSTICK)
+window.addEventListener('mousedown', (e) => {
+  if (gameMode === 'MENU' || e.target.closest('#main-menu') || e.target.closest('.tboy-modal-overlay') || e.target.closest('#hud') || e.target.closest('#in-game-controls')) return;
   handlePunch();
 });
 
 function handlePunch() {
-  if (isRoundEnding) return;
+  if (isRoundEnding || gameMode === 'MENU') return;
   const activeFighter = myRole === 'p1' ? fighterP1 : fighterP2;
   const opponent = myRole === 'p1' ? fighterP2 : fighterP1;
 
@@ -216,19 +325,21 @@ function handlePunch() {
   activeFighter.punch();
 }
 
-// BOT AI CHO CHẾ ĐỘ ĐẤU VỚI MÁY (TÁCH BIỆT LOGIC AI VÀ UPDATE ĐỂ BOT KHÔNG BAO GIỜ BỊ ĐƠ)
+// ===================================================
+// BOT AI & HỆ THỐNG CHIẾN ĐẤU
+// ===================================================
 let botDecisionTimer = 0;
 let botStrafe = 0;
 
 function updateBotAI(dt) {
   const moveInput = { x: 0, z: 0 };
   if (gameMode !== 'AI' || isRoundEnding || fighterP2.isRagdoll || fighterP2.isFallingOff) {
-    return moveInput; // Trả về vector 0 nhưng vẫn để fighterP2.update(dt) chạy ở animate()
+    fighterP2.isSprinting = false;
+    return moveInput;
   }
 
   const p1Pos = fighterP1.root.position;
   const p2Pos = fighterP2.root.position;
-
   const dx = p1Pos.x - p2Pos.x;
   const dz = p1Pos.z - p2Pos.z;
   const dist = Math.hypot(dx, dz);
@@ -237,31 +348,31 @@ function updateBotAI(dt) {
   if (botDecisionTimer <= 0) {
     botDecisionTimer = 0.35 + Math.random() * 0.35;
     botStrafe = (Math.random() - 0.5) * 2.0;
+    // Thi thoảng Bot cũng bật chế độ giơ tay chạy nhanh vui nhộn khi đuổi theo!
+    fighterP2.isSprinting = (dist > 3.5 && Math.random() < 0.35);
   }
 
-  const botSpeed = 4.5;
+  const botSpeed = fighterP2.isSprinting ? 7.6 : 4.5;
   const distFromCenter = Math.hypot(p2Pos.x, p2Pos.z);
 
-  // Nếu quá gần mép dây đài, Bot tự giác lùi vào trong
   if (distFromCenter > 5.1) {
+    fighterP2.isSprinting = false;
     moveInput.x = -p2Pos.x * 0.9;
     moveInput.z = -p2Pos.z * 0.9;
   } else if (fighterP1.isRagdoll) {
-    // Khi người chơi ngã, Bot húc đẩy người chơi ra mép đài
-    moveInput.x = (dx / dist) * botSpeed * 1.25;
-    moveInput.z = (dz / dist) * botSpeed * 1.25;
+    moveInput.x = (dx / dist) * botSpeed * 1.2;
+    moveInput.z = (dz / dist) * botSpeed * 1.2;
     if (dist < 1.6 && Math.random() < 0.15) {
       fighterP2.root.rotation.y = Math.atan2(dx, dz);
       fighterP2.punch();
     }
   } else if (dist > 1.6) {
-    // Tiếp cận có lượn né
     const nx = dx / dist;
     const nz = dz / dist;
     moveInput.x = (nx + -nz * botStrafe * 0.5) * botSpeed;
     moveInput.z = (nz + nx * botStrafe * 0.5) * botSpeed;
   } else {
-    // Áp sát -> Xoay mặt và đấm
+    fighterP2.isSprinting = false;
     fighterP2.root.rotation.y = Math.atan2(dx, dz);
     if (Math.random() < 0.12) {
       fighterP2.punch();
@@ -276,7 +387,7 @@ function updateBotAI(dt) {
   return moveInput;
 }
 
-// 1. VA CHẠM THÂN THỂ GIỮA 2 VÕ SĨ (PUSHING & SHOVING)
+// VA CHẠM THÂN THỂ & HÚC NGƯỜI KHI CHẠY NHANH
 function resolveBodyCollision(f1, f2) {
   if (f1.isFallingOff || f2.isFallingOff) return;
 
@@ -285,12 +396,30 @@ function resolveBodyCollision(f1, f2) {
   const dx = p2.x - p1.x;
   const dz = p2.z - p1.z;
   const dist = Math.hypot(dx, dz);
-  const minDist = 1.15; // Khoảng cách chạm người
+  const minDist = 1.15;
 
   if (dist < minDist && dist > 0.001) {
     const overlap = minDist - dist;
     const nx = dx / dist;
     const nz = dz / dist;
+
+    // Nếu P1 đang Chạy Nhanh (Turbo Sprint) húc vào P2 -> Húc văng P2!
+    if (f1.isSprinting && !f1.isRagdoll && !f2.isRagdoll) {
+      sounds.playPunch();
+      particles.createPunchStars(p2.x, 1.2, p2.z, 12);
+      screenShake = 0.22;
+      f2.takeHit(new THREE.Vector3(nx * 10.5, 3.8, nz * 10.5));
+      return;
+    }
+
+    // Nếu P2 đang Chạy Nhanh húc vào P1
+    if (f2.isSprinting && !f2.isRagdoll && !f1.isRagdoll) {
+      sounds.playPunch();
+      particles.createPunchStars(p1.x, 1.2, p1.z, 12);
+      screenShake = 0.22;
+      f1.takeHit(new THREE.Vector3(-nx * 10.5, 3.8, -nz * 10.5));
+      return;
+    }
 
     if (!f1.isRagdoll && !f2.isRagdoll) {
       p1.x -= nx * overlap * 0.5;
@@ -311,14 +440,13 @@ function resolveBodyCollision(f1, f2) {
   }
 }
 
-// 2. DÂY ĐÀI ĐÀN HỒI & CƠ CHẾ RỚT ĐÀI KHI BỊ ĐẤM VĂNG
+// DÂY ĐÀI ĐÀN HỒI & CƠ CHẾ RỚT ĐÀI
 function checkRopes(fighter) {
   if (fighter.isFallingOff) return;
 
   const pos = fighter.root.position;
-  const bound = 5.80; // Mép dây đài
+  const bound = 5.80;
 
-  // A. KHI ĐANG ĐI BÌNH THƯỜNG (!isRagdoll): Dây đài cản lại không cho đi lố
   if (!fighter.isRagdoll) {
     let touched = false;
     if (pos.x > bound) { pos.x = bound; touched = true; }
@@ -333,11 +461,9 @@ function checkRopes(fighter) {
     return;
   }
 
-  // B. KHI ĐANG BỊ ĐẤM UỐN DẺO (isRagdoll):
   const isOutside = Math.abs(pos.x) > bound || Math.abs(pos.z) > bound;
   if (isOutside) {
     const horizSpeed = Math.hypot(fighter.velocity.x, fighter.velocity.z);
-    // Nếu cú đấm mạnh (> 4.0 m/s) hoặc đang bay bổng: HẤT VĂNG QUA DÂY RỚT ĐÀI!
     if (horizSpeed > 4.0 || pos.y > 0.35) {
       fighter.isFallingOff = true;
       sounds.playBoing();
@@ -345,7 +471,6 @@ function checkRopes(fighter) {
       screenShake = 0.22;
       return;
     } else {
-      // Nếu va chạm chậm thì nảy vào trong
       if (pos.x > bound) { pos.x = bound; fighter.velocity.x = -Math.abs(fighter.velocity.x) * 1.2 - 2; }
       if (pos.x < -bound) { pos.x = -bound; fighter.velocity.x = Math.abs(fighter.velocity.x) * 1.2 + 2; }
       if (pos.z > bound) { pos.z = bound; fighter.velocity.z = -Math.abs(fighter.velocity.z) * 1.2 - 2; }
@@ -355,14 +480,12 @@ function checkRopes(fighter) {
   }
 }
 
-// 3. KIỂM TRA ĐÒN ĐẤM & RỚT ĐÀI (RING OUT)
 function checkCombat(dt) {
   if (isRoundEnding) return;
 
   const p1 = fighterP1;
   const p2 = fighterP2;
 
-  // Va chạm thân thể & dây đài
   resolveBodyCollision(p1, p2);
   checkRopes(p1);
   checkRopes(p2);
@@ -371,35 +494,27 @@ function checkCombat(dt) {
   const p2Pos = p2.root.position;
   const dist = Math.hypot(p2Pos.x - p1Pos.x, p2Pos.z - p1Pos.z);
 
-  // 1. Kiểm tra P1 đấm trúng P2
   if (p1.isPunching && !p2.isRagdoll && !p2.isFallingOff) {
     const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), p1.root.rotation.y);
     const toVictim = new THREE.Vector3(p2Pos.x - p1Pos.x, 0, p2Pos.z - p1Pos.z).normalize();
-    const dot = forward.dot(toVictim);
-
-    if (dist < 1.9 && dot > 0.1) {
+    if (dist < 1.9 && forward.dot(toVictim) > 0.1) {
       sounds.playPunch();
       particles.createPunchStars(p2Pos.x, 1.25, p2Pos.z, 18);
       screenShake = 0.28;
-
       const knockback = toVictim.clone();
       knockback.y = 0.45;
-      knockback.multiplyScalar(14.0); // Lực đấm cực mạnh để hất văng qua dây đài
+      knockback.multiplyScalar(14.0);
       p2.takeHit(knockback);
     }
   }
 
-  // 2. Kiểm tra P2 đấm trúng P1
   if (p2.isPunching && !p1.isRagdoll && !p1.isFallingOff) {
     const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), p2.root.rotation.y);
     const toVictim = new THREE.Vector3(p1Pos.x - p2Pos.x, 0, p1Pos.z - p2Pos.z).normalize();
-    const dot = forward.dot(toVictim);
-
-    if (dist < 1.9 && dot > 0.1) {
+    if (dist < 1.9 && forward.dot(toVictim) > 0.1) {
       sounds.playPunch();
       particles.createPunchStars(p1Pos.x, 1.25, p1Pos.z, 18);
       screenShake = 0.28;
-
       const knockback = toVictim.clone();
       knockback.y = 0.45;
       knockback.multiplyScalar(14.0);
@@ -407,7 +522,6 @@ function checkCombat(dt) {
     }
   }
 
-  // 3. Kiểm tra Rớt Đài (Ring Out khi rơi xuống vực)
   if (p1.isFallingOff && p1.root.position.y <= -0.9) {
     handleRingOut('p2');
   } else if (p2.isFallingOff && p2.root.position.y <= -0.9) {
@@ -415,7 +529,6 @@ function checkCombat(dt) {
   }
 }
 
-// XỬ LÝ RỚT ĐÀI KNOCKOUT & CỘNG ĐIỂM
 const koBanner = document.getElementById('ko-banner');
 const p1ScoreEl = document.getElementById('p1-score');
 const p2ScoreEl = document.getElementById('p2-score');
@@ -465,6 +578,7 @@ function resetFighterPositions() {
   fighterP1.headPivot.rotation.set(0, 0, 0);
   fighterP1.isRagdoll = false;
   fighterP1.isFallingOff = false;
+  fighterP1.isSprinting = false;
 
   fighterP2.root.position.set(3.2, 0, 0);
   fighterP2.root.rotation.y = -Math.PI / 2;
@@ -474,6 +588,10 @@ function resetFighterPositions() {
   fighterP2.headPivot.rotation.set(0, 0, 0);
   fighterP2.isRagdoll = false;
   fighterP2.isFallingOff = false;
+  fighterP2.isSprinting = false;
+
+  sprintToggleTimer = 0;
+  if (btnSprint) btnSprint.classList.remove('active-sprint');
 }
 
 function resetMatch() {
@@ -485,23 +603,31 @@ function resetMatch() {
   isRoundEnding = false;
 }
 
+function enterMatchUI() {
+  requestLandscape();
+  document.getElementById('main-menu').classList.add('hidden');
+  document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('in-game-controls').classList.remove('hidden');
+  updateCameraTarget();
+}
+
 function backToMenu() {
   gameMode = 'MENU';
   document.getElementById('hud').classList.add('hidden');
-  document.getElementById('mobile-punch-btn').classList.add('hidden');
+  document.getElementById('in-game-controls').classList.add('hidden');
   document.getElementById('main-menu').classList.remove('hidden');
   ragdollMP.leaveRoom();
-  updateCameraAspect();
+  resetFighterPositions();
+  updateCameraTarget();
 }
 
 // REALTIME FIREBASE MULTIPLAYER LISTENERS
 ragdollMP.on('game_start', (data) => {
+  document.getElementById('modal-online-menu').classList.add('hidden');
   document.getElementById('modal-create-room').classList.add('hidden');
   document.getElementById('modal-join-room').classList.add('hidden');
-  document.getElementById('main-menu').classList.add('hidden');
-  document.getElementById('hud').classList.remove('hidden');
-  document.getElementById('mobile-punch-btn').classList.remove('hidden');
   gameMode = 'ONLINE';
+  enterMatchUI();
 
   if (data.players) {
     document.getElementById('hud-p1-name').innerText = data.players[0].name.toUpperCase();
@@ -514,10 +640,9 @@ ragdollMP.on('opponent_state', (data) => {
   const opp = myRole === 'p1' ? fighterP2 : fighterP1;
   opp.root.position.set(data.x, data.y, data.z);
   opp.root.rotation.y = data.rotY;
-  if (data.isPunching && !opp.isPunching) {
-    opp.punch();
-  }
+  if (data.isPunching && !opp.isPunching) opp.punch();
   opp.isRagdoll = data.isRagdoll;
+  opp.isSprinting = !!data.isSprinting;
 });
 
 ragdollMP.on('sync_scores', (scores) => {
@@ -534,23 +659,32 @@ ragdollMP.on('player_disconnected', () => {
   backToMenu();
 });
 
-// UI EVENT LISTENERS
+// UI LOBBY EVENT LISTENERS
 document.getElementById('btn-play-ai').addEventListener('click', () => {
   sounds.playClick();
-  requestLandscape();
   gameMode = 'AI';
   myRole = 'p1';
-  document.getElementById('main-menu').classList.add('hidden');
-  document.getElementById('hud').classList.remove('hidden');
-  document.getElementById('mobile-punch-btn').classList.remove('hidden');
   document.getElementById('hud-p1-name').innerText = playerName.toUpperCase();
   document.getElementById('hud-p2-name').innerText = 'BOT';
   resetMatch();
+  enterMatchUI();
   showToast('Bắt đầu đấu với Bot!', 'info');
+});
+
+// ONLINE MENU MODAL
+const modalOnlineMenu = document.getElementById('modal-online-menu');
+document.getElementById('btn-menu-online').addEventListener('click', () => {
+  sounds.playClick();
+  modalOnlineMenu.classList.remove('hidden');
+});
+document.getElementById('btn-close-online-menu').addEventListener('click', () => {
+  sounds.playClick();
+  modalOnlineMenu.classList.add('hidden');
 });
 
 document.getElementById('btn-open-create-room').addEventListener('click', async () => {
   sounds.playClick();
+  modalOnlineMenu.classList.add('hidden');
   requestLandscape();
   try {
     const res = await ragdollMP.createRoom(playerName);
@@ -571,6 +705,7 @@ document.getElementById('btn-cancel-create').addEventListener('click', () => {
 
 document.getElementById('btn-open-join-room').addEventListener('click', () => {
   sounds.playClick();
+  modalOnlineMenu.classList.add('hidden');
   requestLandscape();
   document.getElementById('modal-join-room').classList.remove('hidden');
 });
@@ -582,7 +717,6 @@ document.getElementById('btn-cancel-join').addEventListener('click', () => {
 
 document.getElementById('btn-confirm-join').addEventListener('click', async () => {
   sounds.playClick();
-  requestLandscape();
   const code = document.getElementById('input-join-code').value.trim();
   if (!code) {
     showToast('Vui lòng nhập mã phòng!', 'warning');
@@ -593,10 +727,8 @@ document.getElementById('btn-confirm-join').addEventListener('click', async () =
     roomCode = res.roomCode;
     myRole = 'p2';
     document.getElementById('modal-join-room').classList.add('hidden');
-    document.getElementById('main-menu').classList.add('hidden');
-    document.getElementById('hud').classList.remove('hidden');
-    document.getElementById('mobile-punch-btn').classList.remove('hidden');
     gameMode = 'ONLINE';
+    enterMatchUI();
     showToast('Đã tham gia phòng thi đấu thành công!', 'success');
   } catch (e) {
     showToast(e.message || 'Lỗi tham gia phòng!', 'error');
@@ -619,53 +751,76 @@ document.getElementById('btn-change-name').addEventListener('click', () => {
   }
 });
 
-// DIALOG MẸO THI ĐẤU
-const modalTips = document.getElementById('modal-tips');
-const btnToggleTips = document.getElementById('btn-toggle-tips');
-const btnCloseTips = document.getElementById('btn-close-tips');
-const btnAckTips = document.getElementById('btn-ack-tips');
+document.getElementById('btn-bb-info')?.addEventListener('click', () => {
+  sounds.playClick();
+  showToast('Tboy Ragdoll Arena 3D · Phiên bản vật lý uốn dẻo v2.0!', 'info');
+});
 
-btnToggleTips.addEventListener('click', () => {
+// COLOR PICKER MODAL (ĐỔI MÀU ĐÔ VẬT)
+const modalColor = document.getElementById('modal-color');
+document.getElementById('btn-menu-color').addEventListener('click', () => {
+  sounds.playClick();
+  modalColor.classList.remove('hidden');
+});
+[document.getElementById('btn-close-color'), document.getElementById('btn-save-color')].forEach(btn => {
+  btn?.addEventListener('click', () => {
+    sounds.playClick();
+    modalColor.classList.add('hidden');
+  });
+});
+
+document.querySelectorAll('.color-swatch').forEach(swatch => {
+  const hexVal = parseInt(swatch.dataset.color, 16);
+  if (hexVal === playerColorHex) {
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    swatch.classList.add('active');
+  }
+  swatch.addEventListener('click', () => {
+    sounds.playClick();
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    swatch.classList.add('active');
+    playerColorHex = parseInt(swatch.dataset.color, 16);
+    localStorage.setItem('tboy_ragdoll_color', swatch.dataset.color);
+    fighterP1.setColor(playerColorHex);
+    showToast('Đã đổi màu trang phục võ sĩ!', 'success');
+  });
+});
+
+// MODAL HƯỚNG DẪN CHƠI
+const modalTips = document.getElementById('modal-tips');
+document.getElementById('btn-toggle-tips').addEventListener('click', () => {
   sounds.playClick();
   modalTips.classList.remove('hidden');
 });
-
-[btnCloseTips, btnAckTips].forEach((el) => {
-  if (el) {
-    el.addEventListener('click', () => {
-      sounds.playClick();
-      modalTips.classList.add('hidden');
-    });
-  }
-});
-
-modalTips.addEventListener('click', (e) => {
-  if (e.target === modalTips) {
+[document.getElementById('btn-close-tips'), document.getElementById('btn-ack-tips')].forEach((el) => {
+  el?.addEventListener('click', () => {
     sounds.playClick();
     modalTips.classList.add('hidden');
-  }
+  });
 });
 
-// SPLASH LOADING CHẠY TỰ ĐỘNG
+// SPLASH LOADING -> CHUYỂN MƯỢT VÀO TRANG CHỜ LOBBY
 function dismissSplash() {
   const fill = document.getElementById('loading-bar-inner');
   const splash = document.getElementById('loading-screen');
+  const menu = document.getElementById('main-menu');
   let p = 0;
   const interval = setInterval(() => {
-    p += 25;
+    p += 20;
     if (fill) fill.style.width = `${p}%`;
     if (p >= 100) {
       clearInterval(interval);
       setTimeout(() => {
+        if (menu) menu.classList.remove('hidden');
         if (splash) {
           splash.classList.add('fade-out');
           setTimeout(() => {
             splash.style.display = 'none';
           }, 350);
         }
-      }, 200);
+      }, 220);
     }
-  }, 80);
+  }, 70);
 }
 if (document.readyState === 'complete') {
   dismissSplash();
@@ -674,16 +829,15 @@ if (document.readyState === 'complete') {
   setTimeout(dismissSplash, 800);
 }
 
-// EXPOSE DEBUG FOR TESTING
+// EXPOSE DEBUG
 window.gameDebug = {
   fighterP1,
   fighterP2,
   getScores: () => ({ p1: p1Score, p2: p2Score }),
-  getGameMode: () => gameMode,
-  isRoundEnding: () => isRoundEnding
+  getGameMode: () => gameMode
 };
 
-// ANIMATION LOOP VỚI CAMERA SHAKE & LUÔN UPDATE CẢ 2 VÕ SĨ
+// ANIMATION LOOP CHÍNH
 let lastFrameTime = performance.now();
 
 function animate() {
@@ -693,83 +847,114 @@ function animate() {
   const dt = Math.min((now - lastFrameTime) / 1000, 0.04);
   lastFrameTime = now;
 
-  if (gameMode !== 'MENU') {
-    const speed = 4.8;
+  // Nội suy Camera mượt mà giữa Trang chờ Lobby và Vào Trận
+  currentCamPos.lerp(targetCamPos, Math.min(dt * 5, 1.0));
+  currentCamLookAt.lerp(targetCamLookAt, Math.min(dt * 5, 1.0));
 
-    // 1. INPUT VÀ DI CHUYỂN P1
+  if (gameMode === 'MENU') {
+    // Trong trang chờ Lobby, 2 nhân vật đứng vẫy chào thở nhịp nhàng trên thảm
+    fighterP1.update(dt, { x: 0, z: 0 });
+    fighterP2.update(dt, { x: 0, z: 0 });
+  } else {
+    // TRẠNG THÁI CHẠY NHANH HƠN (GIƠ 2 TAY LÊN TRỜI & HIỆU ỨNG BỤI KHÓI)
+    if (sprintToggleTimer > 0) {
+      sprintToggleTimer = Math.max(0, sprintToggleTimer - dt);
+      if (sprintToggleTimer === 0 && btnSprint) {
+        btnSprint.classList.remove('active-sprint');
+      }
+    }
+
+    const myFighter = myRole === 'p1' ? fighterP1 : fighterP2;
+    const isSprintActive = (keys.shift || sprintToggleTimer > 0) && !myFighter.isRagdoll && !myFighter.isFallingOff;
+    myFighter.isSprinting = isSprintActive;
+
+    const speed = isSprintActive ? 8.8 : 4.8;
+
+    // 1. TỔNG HỢP INPUT DI CHUYỂN TỪ BÀN PHÍM & JOYSTICK ẢO
     let mx = 0, mz = 0;
     if (keys.w) mz -= 1;
     if (keys.s) mz += 1;
     if (keys.a) mx -= 1;
     if (keys.d) mx += 1;
 
-    if (isDraggingPointer && (Math.abs(pointerMoveVec.x) > 0 || Math.abs(pointerMoveVec.z) > 0)) {
-      mx = pointerMoveVec.x;
-      mz = pointerMoveVec.z;
+    if (Math.abs(joystickInput.x) > 0.05 || Math.abs(joystickInput.z) > 0.05) {
+      mx = joystickInput.x;
+      mz = joystickInput.z;
     }
 
-    const p1MoveInput = { x: 0, z: 0 };
+    const myMoveInput = { x: 0, z: 0 };
     const len = Math.hypot(mx, mz);
     if (len > 0.05) {
       const norm = Math.min(len, 1.0);
-      p1MoveInput.x = (mx / len) * norm * speed;
-      p1MoveInput.z = (mz / len) * norm * speed;
+      myMoveInput.x = (mx / len) * norm * speed;
+      myMoveInput.z = (mz / len) * norm * speed;
     }
 
-    if (!fighterP1.isRagdoll && !fighterP1.isFallingOff && !isRoundEnding) {
-      fighterP1.root.position.x += p1MoveInput.x * dt;
-      fighterP1.root.position.z += p1MoveInput.z * dt;
+    if (!myFighter.isRagdoll && !myFighter.isFallingOff && !isRoundEnding) {
+      myFighter.root.position.x += myMoveInput.x * dt;
+      myFighter.root.position.z += myMoveInput.z * dt;
 
-      // Khi đứng yên ở gần đối thủ, tự động xoay mặt đối diện nhau
-      if (len <= 0.05 && !fighterP1.isPunching) {
-        const dx = fighterP2.root.position.x - fighterP1.root.position.x;
-        const dz = fighterP2.root.position.z - fighterP1.root.position.z;
+      // Hiệu ứng khói bụi và vệt tốc độ khi đang Chạy Nhanh!
+      if (isSprintActive && len > 0.05) {
+        sprintTrailTimer -= dt;
+        if (sprintTrailTimer <= 0) {
+          sprintTrailTimer = 0.05;
+          particles.createSprintTrail(myFighter.root.position.x, myFighter.root.position.z, myFighter.root.rotation.y);
+        }
+      }
+
+      if (len <= 0.05 && !myFighter.isPunching) {
+        const opp = myRole === 'p1' ? fighterP2 : fighterP1;
+        const dx = opp.root.position.x - myFighter.root.position.x;
+        const dz = opp.root.position.z - myFighter.root.position.z;
         if (Math.hypot(dx, dz) < 3.8) {
           const targetRot = Math.atan2(dx, dz);
-          let diff = targetRot - fighterP1.root.rotation.y;
+          let diff = targetRot - myFighter.root.rotation.y;
           while (diff < -Math.PI) diff += Math.PI * 2;
           while (diff > Math.PI) diff -= Math.PI * 2;
-          fighterP1.root.rotation.y += diff * Math.min(dt * 8, 1.0);
+          myFighter.root.rotation.y += diff * Math.min(dt * 8, 1.0);
         }
       }
     }
 
-    // LUÔN UPDATE FIGHTER P1 MỖI FRAME
-    fighterP1.update(dt, p1MoveInput);
-
-    // 2. INPUT VÀ DI CHUYỂN P2 (BOT HOẶC GUEST)
-    let p2MoveInput = { x: 0, z: 0 };
-    if (gameMode === 'AI') {
-      p2MoveInput = updateBotAI(dt);
+    // LUÔN UPDATE CẢ 2 VÕ SĨ MỖI FRAME
+    if (myRole === 'p1') {
+      fighterP1.update(dt, myMoveInput);
+      const botInput = gameMode === 'AI' ? updateBotAI(dt) : { x: 0, z: 0 };
+      if (gameMode === 'AI' && fighterP2.isSprinting && !fighterP2.isRagdoll) {
+        if (Math.random() < 0.25) particles.createSprintTrail(fighterP2.root.position.x, fighterP2.root.position.z, fighterP2.root.rotation.y);
+      }
+      fighterP2.update(dt, botInput);
+    } else {
+      fighterP2.update(dt, myMoveInput);
+      fighterP1.update(dt, { x: 0, z: 0 });
     }
-    // LUÔN LUÔN UPDATE FIGHTER P2 MỖI FRAME ĐỂ KHÔNG BAO GIỜ BỊ ĐƠ KHI TRÚNG ĐÒN
-    fighterP2.update(dt, p2MoveInput);
 
-    // 3. COMBAT & VA CHẠM
     checkCombat(dt);
 
     if (gameMode === 'ONLINE') {
-      const myFighter = myRole === 'p1' ? fighterP1 : fighterP2;
       ragdollMP.sendState({
         x: myFighter.root.position.x,
         y: myFighter.root.position.y,
         z: myFighter.root.position.z,
         rotY: myFighter.root.rotation.y,
         isPunching: myFighter.isPunching,
-        isRagdoll: myFighter.isRagdoll
+        isRagdoll: myFighter.isRagdoll,
+        isSprinting: myFighter.isSprinting
       });
     }
   }
 
-  // Camera Shake Decay
+  // Camera Shake & LookAt
   if (screenShake > 0) {
-    camera.position.x = baseCamPos.x + (Math.random() - 0.5) * screenShake;
-    camera.position.y = baseCamPos.y + (Math.random() - 0.5) * screenShake;
+    camera.position.x = currentCamPos.x + (Math.random() - 0.5) * screenShake;
+    camera.position.y = currentCamPos.y + (Math.random() - 0.5) * screenShake;
+    camera.position.z = currentCamPos.z;
     screenShake = Math.max(0, screenShake - dt * 1.5);
   } else {
-    camera.position.x = baseCamPos.x;
-    camera.position.y = baseCamPos.y;
+    camera.position.copy(currentCamPos);
   }
+  camera.lookAt(currentCamLookAt);
 
   particles.update(dt);
   renderer.render(scene, camera);

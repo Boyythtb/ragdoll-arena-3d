@@ -9,8 +9,9 @@ export class RagdollCharacter {
     this.root = new THREE.Group();
     this.scene.add(this.root);
 
-    // Trạng thái đấm & uốn dẻo
+    // Trạng thái đấm, chạy nhanh & uốn dẻo
     this.isPunching = false;
+    this.isSprinting = false;
     this.punchTime = 0;
     this.punchCooldown = 0;
     this.isRagdoll = false;
@@ -33,11 +34,12 @@ export class RagdollCharacter {
   }
 
   buildMeshes() {
-    const mat = new THREE.MeshStandardMaterial({
+    this.bodyMat = new THREE.MeshStandardMaterial({
       color: this.colorHex,
       roughness: 0.28,
       metalness: 0.08
     });
+    const mat = this.bodyMat;
     const skinMat = new THREE.MeshStandardMaterial({
       color: 0xfde047, // Da mặt vàng hoạt hình đáng yêu
       roughness: 0.4
@@ -161,6 +163,13 @@ export class RagdollCharacter {
     legPivot.add(shoe);
 
     return legPivot;
+  }
+
+  setColor(hex) {
+    this.colorHex = hex;
+    if (this.bodyMat) {
+      this.bodyMat.color.setHex(hex);
+    }
   }
 
   // TUNG CÚ ĐẤM SMASH LAO NGƯỜI
@@ -288,7 +297,8 @@ export class RagdollCharacter {
 
     const isMoving = Math.abs(moveInput.x) > 0.05 || Math.abs(moveInput.z) > 0.05;
     if (isMoving) {
-      this.walkCycle += dt * 15;
+      const cycleSpeed = this.isSprinting ? 26 : 15;
+      this.walkCycle += dt * cycleSpeed;
       const targetAngle = Math.atan2(moveInput.x, moveInput.z);
 
       // Xoay hướng êm ái
@@ -297,29 +307,40 @@ export class RagdollCharacter {
       while (diff > Math.PI) diff -= Math.PI * 2;
       this.root.rotation.y += diff * Math.min(dt * 18, 1.0);
 
-      // Nghiêng người theo hướng chạy (Dynamic Bank/Lean như Gang Beasts)
-      this.tiltX = THREE.MathUtils.lerp(this.tiltX, Math.sin(this.walkCycle) * 0.18 + 0.18, dt * 10);
-      this.tiltZ = THREE.MathUtils.lerp(this.tiltZ, Math.cos(this.walkCycle) * 0.22, dt * 10);
+      // Nghiêng người theo hướng chạy (Chạy nhanh thì chúi người lao tới mạnh hơn)
+      const targetLeanX = this.isSprinting ? 0.38 : (Math.sin(this.walkCycle) * 0.18 + 0.18);
+      this.tiltX = THREE.MathUtils.lerp(this.tiltX, targetLeanX, dt * 12);
+      this.tiltZ = THREE.MathUtils.lerp(this.tiltZ, Math.cos(this.walkCycle) * (this.isSprinting ? 0.28 : 0.22), dt * 12);
 
       this.torsoGroup.rotation.x = this.tiltX;
       this.torsoGroup.rotation.z = this.tiltZ;
 
-      // Bước chân lon ton nhịp nhàng
-      this.torsoGroup.position.y = 1.25 + Math.abs(Math.sin(this.walkCycle)) * 0.12;
-      this.leftLegPivot.rotation.x = Math.sin(this.walkCycle) * 0.75;
-      this.rightLegPivot.rotation.x = -Math.sin(this.walkCycle) * 0.75;
+      // Bước chân lon ton nhịp nhàng (Chạy nhanh guồng chân siêu tốc)
+      const strideAmp = this.isSprinting ? 1.05 : 0.75;
+      this.torsoGroup.position.y = 1.25 + Math.abs(Math.sin(this.walkCycle)) * (this.isSprinting ? 0.18 : 0.12);
+      this.leftLegPivot.rotation.x = Math.sin(this.walkCycle) * strideAmp;
+      this.rightLegPivot.rotation.x = -Math.sin(this.walkCycle) * strideAmp;
 
-      // Đầu lúc lắc theo nhịp chạy (Bobblehead)
+      // Đầu lúc lắc theo nhịp chạy
       this.headPivot.rotation.z = -this.tiltZ * 0.7;
-      this.headPivot.rotation.x = Math.sin(this.walkCycle * 2) * 0.12;
+      this.headPivot.rotation.x = this.isSprinting ? -0.25 + Math.sin(this.walkCycle * 2) * 0.15 : Math.sin(this.walkCycle * 2) * 0.12;
 
-      // Tay vung vẩy dẻo quẹo
+      // Tay: Nếu đang Chạy Nhanh -> GIƠ 2 TAY LÊN TRỜI VẪY HÀO HỨNG!
       if (!this.isPunching) {
-        this.leftArmPivot.rotation.x = -Math.sin(this.walkCycle) * 0.7;
-        this.rightArmPivot.rotation.x = Math.sin(this.walkCycle) * 0.7;
+        if (this.isSprinting) {
+          this.leftArmPivot.rotation.x = -Math.PI + 0.3 + Math.sin(this.walkCycle * 0.7) * 0.28;
+          this.rightArmPivot.rotation.x = -Math.PI + 0.3 - Math.sin(this.walkCycle * 0.7) * 0.28;
+          this.leftArmPivot.rotation.z = -0.26;
+          this.rightArmPivot.rotation.z = 0.26;
+        } else {
+          this.leftArmPivot.rotation.x = -Math.sin(this.walkCycle) * 0.7;
+          this.rightArmPivot.rotation.x = Math.sin(this.walkCycle) * 0.7;
+          this.leftArmPivot.rotation.z = 0;
+          this.rightArmPivot.rotation.z = 0;
+        }
       }
     } else {
-      // Đứng thở nhún nhảy đáng yêu khi nghỉ (Idle Wobble)
+      // Đứng thở nhún nhảy đáng yêu khi nghỉ (Nếu đang bật Chạy nhanh vẫn giơ 2 tay lên trời hào hứng!)
       this.wobblePhase += dt * 3.5;
       this.tiltX = THREE.MathUtils.lerp(this.tiltX, 0, dt * 8);
       this.tiltZ = THREE.MathUtils.lerp(this.tiltZ, 0, dt * 8);
@@ -335,13 +356,23 @@ export class RagdollCharacter {
       this.rightLegPivot.rotation.x = 0;
 
       if (!this.isPunching) {
-        this.leftArmPivot.rotation.x = 0.18 + Math.sin(this.wobblePhase) * 0.05;
-        this.rightArmPivot.rotation.x = 0.18 + Math.sin(this.wobblePhase) * 0.05;
+        if (this.isSprinting) {
+          this.leftArmPivot.rotation.x = -Math.PI + 0.3 + Math.sin(this.wobblePhase * 2) * 0.15;
+          this.rightArmPivot.rotation.x = -Math.PI + 0.3 - Math.sin(this.wobblePhase * 2) * 0.15;
+          this.leftArmPivot.rotation.z = -0.24;
+          this.rightArmPivot.rotation.z = 0.24;
+        } else {
+          this.leftArmPivot.rotation.x = 0.18 + Math.sin(this.wobblePhase) * 0.05;
+          this.rightArmPivot.rotation.x = 0.18 + Math.sin(this.wobblePhase) * 0.05;
+          this.leftArmPivot.rotation.z = 0;
+          this.rightArmPivot.rotation.z = 0;
+        }
       }
     }
 
     // 4. ANIMATION ĐẤM SMASH UỐN DẺO CỰC LỰC
     if (this.isPunching) {
+      this.rightArmPivot.rotation.z = 0;
       this.punchTime += dt;
       const duration = 0.28;
       const progress = this.punchTime / duration;
