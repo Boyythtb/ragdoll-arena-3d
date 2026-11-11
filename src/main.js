@@ -77,58 +77,50 @@ const fighterP2 = new RagdollCharacter(scene, 0xf43f5e, false);  // P2 Rose Red
 
 resetFighterPositions();
 
-// CĂN CHỈNH CAMERA THÍCH ỨNG TOÀN DIỆN CHO MỌI MÀN HÌNH (ĐIỆN THOẠI DỌC / NGANG / MÁY TÍNH)
+// CĂN CHỈNH CAMERA RỘNG TOÀN CẢNH (EXPANSIVE CINEMATIC ARENA)
 function updateCameraAspect() {
   const width = window.innerWidth;
   const height = window.innerHeight;
   const aspect = width / height;
   camera.aspect = aspect;
 
-  // Bán kính an toàn của sàn võ đài (bao gồm cả 4 cột góc và khoảng đệm)
-  const safeRadius = 9.4;
-  const tanHalfVFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  
-  // Tính khoảng cách cần thiết theo chiều ngang và dọc
-  const distY = safeRadius / tanHalfVFov;
-  const distX = safeRadius / (tanHalfVFov * aspect);
-  const targetDist = Math.max(distY * 1.05, distX * 1.08, 19.5);
+  // Căn chỉnh khoảng cách camera để võ đài rộng nhất, hoành tráng nhất có thể
+  // Sân võ đài 13.5m sẽ chiếm trọn vẹn và đẹp mắt trên màn hình ngang
+  let targetDist = 18.0;
+  if (aspect < 1.4) {
+    targetDist = 19.5;
+  }
+  if (aspect < 1.0) {
+    // Nếu màn hình dọc (desktop cửa sổ nhỏ)
+    targetDist = Math.max(9.2 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect), 28.0);
+  }
 
-  // Góc nghiêng camera 38 độ từ trên xuống để thấy toàn bộ võ đài sắc nét
-  baseCamPos.set(0, targetDist * 0.65, targetDist * 0.76);
+  // Góc nghiêng camera 38 độ từ trên xuống nhìn toàn cảnh bao quát võ đài
+  baseCamPos.set(0, targetDist * 0.64, targetDist * 0.74);
   camera.position.copy(baseCamPos);
   camera.lookAt(baseCamLookAt);
   camera.updateProjectionMatrix();
 
   renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-  // Kiểm tra hiển thị banner gợi ý xoay ngang nếu là điện thoại cầm dọc
-  const rotatePrompt = document.getElementById('rotate-device-prompt');
-  if (rotatePrompt) {
-    const isMobilePortrait = width < height && width < 768;
-    if (isMobilePortrait && !rotatePrompt.dataset.dismissed && gameMode === 'MENU') {
-      rotatePrompt.classList.remove('hidden');
-    } else {
-      rotatePrompt.classList.add('hidden');
-    }
-  }
 }
 updateCameraAspect();
 window.addEventListener('resize', updateCameraAspect);
 
-// GỢI Ý / TỰ ĐỘNG KHÓA MÀN HÌNH NGANG KHI VÀO GAME NẾU TRÌNH DUYỆT HỖ TRỢ
+// TỰ ĐỘNG KHÓA MÀN HÌNH NGANG CHO ĐIỆN THOẠI
 function requestLandscape() {
   if (screen.orientation && screen.orientation.lock) {
     screen.orientation.lock('landscape').catch(() => {});
   }
 }
 
-// Nút tắt banner xoay màn hình nếu người dùng muốn chơi dọc
-document.getElementById('btn-dismiss-rotate')?.addEventListener('click', () => {
-  const rotatePrompt = document.getElementById('rotate-device-prompt');
-  if (rotatePrompt) {
-    rotatePrompt.classList.add('hidden');
-    rotatePrompt.dataset.dismissed = 'true';
+// NÚT YÊU CẦU XOAY NGANG TRÊN MÀN HÌNH KHÓA
+document.getElementById('btn-force-landscape')?.addEventListener('click', async () => {
+  sounds.playClick();
+  requestLandscape();
+  const el = document.documentElement;
+  if (el.requestFullscreen && !document.fullscreenElement) {
+    try { await el.requestFullscreen(); } catch (e) {}
   }
 });
 
