@@ -29,10 +29,9 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xfdf2f8);
 scene.fog = new THREE.FogExp2(0xfdf2f8, 0.007);
 
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 150);
-const baseCamPos = new THREE.Vector3(0, 14.5, 16.5);
-camera.position.copy(baseCamPos);
-camera.lookAt(0, 0.6, 0);
+const camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.1, 150);
+const baseCamPos = new THREE.Vector3(0, 15.5, 17.5);
+const baseCamLookAt = new THREE.Vector3(0, 0.4, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -54,11 +53,11 @@ mainLight.castShadow = true;
 mainLight.shadow.mapSize.width = 2048;
 mainLight.shadow.mapSize.height = 2048;
 mainLight.shadow.camera.near = 1;
-mainLight.shadow.camera.far = 60;
-mainLight.shadow.camera.left = -16;
-mainLight.shadow.camera.right = 16;
-mainLight.shadow.camera.top = 16;
-mainLight.shadow.camera.bottom = -16;
+mainLight.shadow.camera.far = 70;
+mainLight.shadow.camera.left = -18;
+mainLight.shadow.camera.right = 18;
+mainLight.shadow.camera.top = 18;
+mainLight.shadow.camera.bottom = -18;
 mainLight.shadow.bias = -0.0003;
 scene.add(mainLight);
 
@@ -77,6 +76,61 @@ const fighterP1 = new RagdollCharacter(scene, 0x0284c7, true);   // P1 Sky Blue
 const fighterP2 = new RagdollCharacter(scene, 0xf43f5e, false);  // P2 Rose Red
 
 resetFighterPositions();
+
+// CĂN CHỈNH CAMERA THÍCH ỨNG TOÀN DIỆN CHO MỌI MÀN HÌNH (ĐIỆN THOẠI DỌC / NGANG / MÁY TÍNH)
+function updateCameraAspect() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const aspect = width / height;
+  camera.aspect = aspect;
+
+  // Bán kính an toàn của sàn võ đài (bao gồm cả 4 cột góc và khoảng đệm)
+  const safeRadius = 9.4;
+  const tanHalfVFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  
+  // Tính khoảng cách cần thiết theo chiều ngang và dọc
+  const distY = safeRadius / tanHalfVFov;
+  const distX = safeRadius / (tanHalfVFov * aspect);
+  const targetDist = Math.max(distY * 1.05, distX * 1.08, 19.5);
+
+  // Góc nghiêng camera 38 độ từ trên xuống để thấy toàn bộ võ đài sắc nét
+  baseCamPos.set(0, targetDist * 0.65, targetDist * 0.76);
+  camera.position.copy(baseCamPos);
+  camera.lookAt(baseCamLookAt);
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  // Kiểm tra hiển thị banner gợi ý xoay ngang nếu là điện thoại cầm dọc
+  const rotatePrompt = document.getElementById('rotate-device-prompt');
+  if (rotatePrompt) {
+    const isMobilePortrait = width < height && width < 768;
+    if (isMobilePortrait && !rotatePrompt.dataset.dismissed && gameMode === 'MENU') {
+      rotatePrompt.classList.remove('hidden');
+    } else {
+      rotatePrompt.classList.add('hidden');
+    }
+  }
+}
+updateCameraAspect();
+window.addEventListener('resize', updateCameraAspect);
+
+// GỢI Ý / TỰ ĐỘNG KHÓA MÀN HÌNH NGANG KHI VÀO GAME NẾU TRÌNH DUYỆT HỖ TRỢ
+function requestLandscape() {
+  if (screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('landscape').catch(() => {});
+  }
+}
+
+// Nút tắt banner xoay màn hình nếu người dùng muốn chơi dọc
+document.getElementById('btn-dismiss-rotate')?.addEventListener('click', () => {
+  const rotatePrompt = document.getElementById('rotate-device-prompt');
+  if (rotatePrompt) {
+    rotatePrompt.classList.add('hidden');
+    rotatePrompt.dataset.dismissed = 'true';
+  }
+});
 
 // HỆ THỐNG ĐIỀU KHIỂN ĐA NĂNG (BÀN PHÍM + CHUỘT / CẢM ỨNG KÉO DRAG)
 const keys = { w: false, a: false, s: false, d: false, space: false };
@@ -138,7 +192,6 @@ window.addEventListener('pointerup', (e) => {
     const dx = e.clientX - pointerStartX;
     const dy = e.clientY - pointerStartY;
     const elapsed = performance.now() - pointerStartTime;
-    // Chạm nhanh hoặc click nhẹ (< 250ms & < 14px) -> TUNG CÚ ĐẤM!
     if (elapsed < 250 && Math.hypot(dx, dy) < 14) {
       handlePunch();
     }
@@ -171,12 +224,15 @@ function handlePunch() {
   activeFighter.punch();
 }
 
-// BOT AI CHO CHẾ ĐỘ ĐẤU VỚI MÁY (THÔNG MINH, TẤN CÔNG & LÙI HỢP LÝ)
+// BOT AI CHO CHẾ ĐỘ ĐẤU VỚI MÁY (TÁCH BIỆT LOGIC AI VÀ UPDATE ĐỂ BOT KHÔNG BAO GIỜ BỊ ĐƠ)
 let botDecisionTimer = 0;
 let botStrafe = 0;
 
 function updateBotAI(dt) {
-  if (gameMode !== 'AI' || isRoundEnding || fighterP2.isRagdoll || fighterP2.isFallingOff) return;
+  const moveInput = { x: 0, z: 0 };
+  if (gameMode !== 'AI' || isRoundEnding || fighterP2.isRagdoll || fighterP2.isFallingOff) {
+    return moveInput; // Trả về vector 0 nhưng vẫn để fighterP2.update(dt) chạy ở animate()
+  }
 
   const p1Pos = fighterP1.root.position;
   const p2Pos = fighterP2.root.position;
@@ -191,9 +247,7 @@ function updateBotAI(dt) {
     botStrafe = (Math.random() - 0.5) * 2.0;
   }
 
-  const moveInput = { x: 0, z: 0 };
   const botSpeed = 4.5;
-
   const distFromCenter = Math.hypot(p2Pos.x, p2Pos.z);
 
   // Nếu quá gần mép dây đài, Bot tự giác lùi vào trong
@@ -227,7 +281,7 @@ function updateBotAI(dt) {
   p2Pos.x += moveInput.x * dt;
   p2Pos.z += moveInput.z * dt;
 
-  fighterP2.update(dt, moveInput);
+  return moveInput;
 }
 
 // 1. VA CHẠM THÂN THỂ GIỮA 2 VÕ SĨ (PUSHING & SHOVING)
@@ -288,7 +342,6 @@ function checkRopes(fighter) {
   }
 
   // B. KHI ĐANG BỊ ĐẤM UỐN DẺO (isRagdoll):
-  // Nếu bị đấm văng ra ngoài mép dây
   const isOutside = Math.abs(pos.x) > bound || Math.abs(pos.z) > bound;
   if (isOutside) {
     const horizSpeed = Math.hypot(fighter.velocity.x, fighter.velocity.z);
@@ -332,7 +385,6 @@ function checkCombat(dt) {
     const toVictim = new THREE.Vector3(p2Pos.x - p1Pos.x, 0, p2Pos.z - p1Pos.z).normalize();
     const dot = forward.dot(toVictim);
 
-    // Cự ly đấm trúng trong tầm 1.9m và quay mặt về đối thủ
     if (dist < 1.9 && dot > 0.1) {
       sounds.playPunch();
       particles.createPunchStars(p2Pos.x, 1.25, p2Pos.z, 18);
@@ -447,6 +499,7 @@ function backToMenu() {
   document.getElementById('mobile-punch-btn').classList.add('hidden');
   document.getElementById('main-menu').classList.remove('hidden');
   ragdollMP.leaveRoom();
+  updateCameraAspect();
 }
 
 // REALTIME FIREBASE MULTIPLAYER LISTENERS
@@ -492,6 +545,7 @@ ragdollMP.on('player_disconnected', () => {
 // UI EVENT LISTENERS
 document.getElementById('btn-play-ai').addEventListener('click', () => {
   sounds.playClick();
+  requestLandscape();
   gameMode = 'AI';
   myRole = 'p1';
   document.getElementById('main-menu').classList.add('hidden');
@@ -505,6 +559,7 @@ document.getElementById('btn-play-ai').addEventListener('click', () => {
 
 document.getElementById('btn-open-create-room').addEventListener('click', async () => {
   sounds.playClick();
+  requestLandscape();
   try {
     const res = await ragdollMP.createRoom(playerName);
     roomCode = res.roomCode;
@@ -524,6 +579,7 @@ document.getElementById('btn-cancel-create').addEventListener('click', () => {
 
 document.getElementById('btn-open-join-room').addEventListener('click', () => {
   sounds.playClick();
+  requestLandscape();
   document.getElementById('modal-join-room').classList.remove('hidden');
 });
 
@@ -534,6 +590,7 @@ document.getElementById('btn-cancel-join').addEventListener('click', () => {
 
 document.getElementById('btn-confirm-join').addEventListener('click', async () => {
   sounds.playClick();
+  requestLandscape();
   const code = document.getElementById('input-join-code').value.trim();
   if (!code) {
     showToast('Vui lòng nhập mã phòng!', 'warning');
@@ -634,7 +691,7 @@ window.gameDebug = {
   isRoundEnding: () => isRoundEnding
 };
 
-// ANIMATION LOOP VỚI CAMERA SHAKE
+// ANIMATION LOOP VỚI CAMERA SHAKE & LUÔN UPDATE CẢ 2 VÕ SĨ
 let lastFrameTime = performance.now();
 
 function animate() {
@@ -645,11 +702,9 @@ function animate() {
   lastFrameTime = now;
 
   if (gameMode !== 'MENU') {
-    const myFighter = myRole === 'p1' ? fighterP1 : fighterP2;
-    const opponent = myRole === 'p1' ? fighterP2 : fighterP1;
     const speed = 4.8;
 
-    // Tổng hợp điều khiển từ bàn phím & touch drag
+    // 1. INPUT VÀ DI CHUYỂN P1
     let mx = 0, mz = 0;
     if (keys.w) mz -= 1;
     if (keys.s) mz += 1;
@@ -661,41 +716,48 @@ function animate() {
       mz = pointerMoveVec.z;
     }
 
-    const moveInput = { x: 0, z: 0 };
+    const p1MoveInput = { x: 0, z: 0 };
     const len = Math.hypot(mx, mz);
     if (len > 0.05) {
       const norm = Math.min(len, 1.0);
-      moveInput.x = (mx / len) * norm * speed;
-      moveInput.z = (mz / len) * norm * speed;
+      p1MoveInput.x = (mx / len) * norm * speed;
+      p1MoveInput.z = (mz / len) * norm * speed;
     }
 
-    if (!myFighter.isRagdoll && !myFighter.isFallingOff && !isRoundEnding) {
-      myFighter.root.position.x += moveInput.x * dt;
-      myFighter.root.position.z += moveInput.z * dt;
+    if (!fighterP1.isRagdoll && !fighterP1.isFallingOff && !isRoundEnding) {
+      fighterP1.root.position.x += p1MoveInput.x * dt;
+      fighterP1.root.position.z += p1MoveInput.z * dt;
 
-      // Khi đứng yên ở gần đối thủ, tự động xoay mặt đối diện nhau (Squaring up)
-      if (len <= 0.05 && !myFighter.isPunching) {
-        const dx = opponent.root.position.x - myFighter.root.position.x;
-        const dz = opponent.root.position.z - myFighter.root.position.z;
+      // Khi đứng yên ở gần đối thủ, tự động xoay mặt đối diện nhau
+      if (len <= 0.05 && !fighterP1.isPunching) {
+        const dx = fighterP2.root.position.x - fighterP1.root.position.x;
+        const dz = fighterP2.root.position.z - fighterP1.root.position.z;
         if (Math.hypot(dx, dz) < 3.8) {
           const targetRot = Math.atan2(dx, dz);
-          let diff = targetRot - myFighter.root.rotation.y;
+          let diff = targetRot - fighterP1.root.rotation.y;
           while (diff < -Math.PI) diff += Math.PI * 2;
           while (diff > Math.PI) diff -= Math.PI * 2;
-          myFighter.root.rotation.y += diff * Math.min(dt * 8, 1.0);
+          fighterP1.root.rotation.y += diff * Math.min(dt * 8, 1.0);
         }
       }
     }
 
-    myFighter.update(dt, moveInput);
+    // LUÔN UPDATE FIGHTER P1 MỖI FRAME
+    fighterP1.update(dt, p1MoveInput);
 
+    // 2. INPUT VÀ DI CHUYỂN P2 (BOT HOẶC GUEST)
+    let p2MoveInput = { x: 0, z: 0 };
     if (gameMode === 'AI') {
-      updateBotAI(dt);
+      p2MoveInput = updateBotAI(dt);
     }
+    // LUÔN LUÔN UPDATE FIGHTER P2 MỖI FRAME ĐỂ KHÔNG BAO GIỜ BỊ ĐƠ KHI TRÚNG ĐÒN
+    fighterP2.update(dt, p2MoveInput);
 
+    // 3. COMBAT & VA CHẠM
     checkCombat(dt);
 
     if (gameMode === 'ONLINE') {
+      const myFighter = myRole === 'p1' ? fighterP1 : fighterP2;
       ragdollMP.sendState({
         x: myFighter.root.position.x,
         y: myFighter.root.position.y,
@@ -721,9 +783,3 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
-
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
