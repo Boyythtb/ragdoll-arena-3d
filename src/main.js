@@ -24,8 +24,19 @@ let p2Score = 0;
 const targetScore = 5;
 let isRoundEnding = false;
 let screenShake = 0;
+let currentRoundId = 0;
 let sprintToggleTimer = 0;
 let sprintTrailTimer = 0;
+const oppTargetState = {
+  hasTarget: false,
+  x: 3.2,
+  y: 0,
+  z: 0,
+  rotY: -Math.PI / 2,
+  isRagdoll: false,
+  isSprinting: false,
+  isFallingOff: false
+};
 const btnPunch = document.getElementById('btn-punch');
 const btnSprint = document.getElementById('btn-sprint');
 
@@ -403,22 +414,39 @@ function resolveBodyCollision(f1, f2) {
     const nx = dx / dist;
     const nz = dz / dist;
 
-    // Nếu P1 đang Chạy Nhanh (Turbo Sprint) húc vào P2 -> Húc văng P2!
-    if (f1.isSprinting && !f1.isRagdoll && !f2.isRagdoll) {
-      sounds.playPunch();
-      particles.createPunchStars(p2.x, 1.2, p2.z, 12);
-      screenShake = 0.22;
-      f2.takeHit(new THREE.Vector3(nx * 10.5, 3.8, nz * 10.5));
-      return;
-    }
+    // Nếu đang ONLINE, chỉ kích hoạt húc bay từ người đang điều khiển nhân vật này
+    if (gameMode === 'ONLINE') {
+      const myFighter = myRole === 'p1' ? f1 : f2;
+      const oppFighter = myRole === 'p1' ? f2 : f1;
+      const oppRole = myRole === 'p1' ? 'p2' : 'p1';
+      const sign = myRole === 'p1' ? 1 : -1;
 
-    // Nếu P2 đang Chạy Nhanh húc vào P1
-    if (f2.isSprinting && !f2.isRagdoll && !f1.isRagdoll) {
-      sounds.playPunch();
-      particles.createPunchStars(p1.x, 1.2, p1.z, 12);
-      screenShake = 0.22;
-      f1.takeHit(new THREE.Vector3(-nx * 10.5, 3.8, -nz * 10.5));
-      return;
+      if (myFighter.isSprinting && !myFighter.isRagdoll && !oppFighter.isRagdoll && !oppFighter.isFallingOff) {
+        sounds.playPunch();
+        particles.createPunchStars(oppFighter.root.position.x, 1.2, oppFighter.root.position.z, 12);
+        screenShake = 0.22;
+        const hitVec = new THREE.Vector3(nx * sign * 11.0, 3.8, nz * sign * 11.0);
+        oppFighter.takeHit(hitVec);
+        ragdollMP.sendHit(oppRole, hitVec);
+        return;
+      }
+    } else {
+      // AI MODE: P1 hoặc P2 húc nhau
+      if (f1.isSprinting && !f1.isRagdoll && !f2.isRagdoll) {
+        sounds.playPunch();
+        particles.createPunchStars(p2.x, 1.2, p2.z, 12);
+        screenShake = 0.22;
+        f2.takeHit(new THREE.Vector3(nx * 10.5, 3.8, nz * 10.5));
+        return;
+      }
+
+      if (f2.isSprinting && !f2.isRagdoll && !f1.isRagdoll) {
+        sounds.playPunch();
+        particles.createPunchStars(p1.x, 1.2, p1.z, 12);
+        screenShake = 0.22;
+        f1.takeHit(new THREE.Vector3(-nx * 10.5, 3.8, -nz * 10.5));
+        return;
+      }
     }
 
     if (!f1.isRagdoll && !f2.isRagdoll) {
@@ -494,38 +522,65 @@ function checkCombat(dt) {
   const p2Pos = p2.root.position;
   const dist = Math.hypot(p2Pos.x - p1Pos.x, p2Pos.z - p1Pos.z);
 
-  if (p1.isPunching && !p2.isRagdoll && !p2.isFallingOff) {
-    const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), p1.root.rotation.y);
-    const toVictim = new THREE.Vector3(p2Pos.x - p1Pos.x, 0, p2Pos.z - p1Pos.z).normalize();
-    if (dist < 1.9 && forward.dot(toVictim) > 0.1) {
-      sounds.playPunch();
-      particles.createPunchStars(p2Pos.x, 1.25, p2Pos.z, 18);
-      screenShake = 0.28;
-      const knockback = toVictim.clone();
-      knockback.y = 0.45;
-      knockback.multiplyScalar(14.0);
-      p2.takeHit(knockback);
+  if (gameMode === 'ONLINE') {
+    const attacker = myRole === 'p1' ? p1 : p2;
+    const victim = myRole === 'p1' ? p2 : p1;
+    const oppRole = myRole === 'p1' ? 'p2' : 'p1';
+    const aPos = attacker.root.position;
+    const vPos = victim.root.position;
+
+    if (attacker.isPunching && !victim.isRagdoll && !victim.isFallingOff) {
+      const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), attacker.root.rotation.y);
+      const toVictim = new THREE.Vector3(vPos.x - aPos.x, 0, vPos.z - aPos.z).normalize();
+      if (dist < 1.9 && forward.dot(toVictim) > 0.1) {
+        sounds.playPunch();
+        particles.createPunchStars(vPos.x, 1.25, vPos.z, 18);
+        screenShake = 0.28;
+        const knockback = toVictim.clone();
+        knockback.y = 0.45;
+        knockback.multiplyScalar(14.0);
+        victim.takeHit(knockback);
+        ragdollMP.sendHit(oppRole, knockback);
+      }
+    }
+  } else {
+    // AI / LOCAL MODE
+    if (p1.isPunching && !p2.isRagdoll && !p2.isFallingOff) {
+      const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), p1.root.rotation.y);
+      const toVictim = new THREE.Vector3(p2Pos.x - p1Pos.x, 0, p2Pos.z - p1Pos.z).normalize();
+      if (dist < 1.9 && forward.dot(toVictim) > 0.1) {
+        sounds.playPunch();
+        particles.createPunchStars(p2Pos.x, 1.25, p2Pos.z, 18);
+        screenShake = 0.28;
+        const knockback = toVictim.clone();
+        knockback.y = 0.45;
+        knockback.multiplyScalar(14.0);
+        p2.takeHit(knockback);
+      }
+    }
+
+    if (p2.isPunching && !p1.isRagdoll && !p1.isFallingOff) {
+      const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), p2.root.rotation.y);
+      const toVictim = new THREE.Vector3(p1Pos.x - p2Pos.x, 0, p1Pos.z - p2Pos.z).normalize();
+      if (dist < 1.9 && forward.dot(toVictim) > 0.1) {
+        sounds.playPunch();
+        particles.createPunchStars(p1Pos.x, 1.25, p1Pos.z, 18);
+        screenShake = 0.28;
+        const knockback = toVictim.clone();
+        knockback.y = 0.45;
+        knockback.multiplyScalar(14.0);
+        p1.takeHit(knockback);
+      }
     }
   }
 
-  if (p2.isPunching && !p1.isRagdoll && !p1.isFallingOff) {
-    const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), p2.root.rotation.y);
-    const toVictim = new THREE.Vector3(p1Pos.x - p2Pos.x, 0, p1Pos.z - p2Pos.z).normalize();
-    if (dist < 1.9 && forward.dot(toVictim) > 0.1) {
-      sounds.playPunch();
-      particles.createPunchStars(p1Pos.x, 1.25, p1Pos.z, 18);
-      screenShake = 0.28;
-      const knockback = toVictim.clone();
-      knockback.y = 0.45;
-      knockback.multiplyScalar(14.0);
-      p1.takeHit(knockback);
+  // CHỈ HOST P1 QUYẾT ĐỊNH RING OUT TRONG CHẾ ĐỘ ONLINE ĐỂ KHÔNG BỊ TRÙNG ĐIỂM
+  if (gameMode !== 'ONLINE' || myRole === 'p1') {
+    if (p1.isFallingOff && p1.root.position.y <= -0.9) {
+      handleRingOut('p2');
+    } else if (p2.isFallingOff && p2.root.position.y <= -0.9) {
+      handleRingOut('p1');
     }
-  }
-
-  if (p1.isFallingOff && p1.root.position.y <= -0.9) {
-    handleRingOut('p2');
-  } else if (p2.isFallingOff && p2.root.position.y <= -0.9) {
-    handleRingOut('p1');
   }
 }
 
@@ -540,15 +595,19 @@ function handleRingOut(winner) {
   if (winner === 'p1') {
     p1Score++;
     p1ScoreEl.innerText = p1Score;
-    koBanner.innerHTML = '<span>💥</span> RING OUT! BẠN GHI ĐIỂM!';
   } else {
     p2Score++;
     p2ScoreEl.innerText = p2Score;
-    koBanner.innerHTML = '<span>🤖</span> RING OUT! ĐỐI THỦ GHI ĐIỂM!';
   }
 
+  const iWon = (winner === 'p1' && myRole === 'p1') || (winner === 'p2' && myRole === 'p2');
+  koBanner.innerHTML = iWon
+    ? '<span>💥</span> RING OUT! BẠN GHI ĐIỂM!'
+    : '<span>🤖</span> RING OUT! ĐỐI THỦ GHI ĐIỂM!';
+
   if (gameMode === 'ONLINE' && myRole === 'p1') {
-    ragdollMP.updateScores({ p1: p1Score, p2: p2Score }, winner);
+    currentRoundId++;
+    ragdollMP.updateRoundState({ p1: p1Score, p2: p2Score }, winner, currentRoundId);
   }
 
   koBanner.classList.add('show');
@@ -556,14 +615,14 @@ function handleRingOut(winner) {
   setTimeout(() => {
     koBanner.classList.remove('show');
     if (p1Score >= targetScore || p2Score >= targetScore) {
-      const won = (winner === 'p1' && myRole === 'p1') || (winner === 'p2' && myRole === 'p2');
       sounds.playVictory();
-      confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 } });
-      showToast(won ? '🏆 VÔ ĐỊCH VÕ ĐÀI RAGDOLL ARENA!' : 'THUA TRẬN NÀY RỒI! HÃY THỬ LẠI NHÉ!', won ? 'success' : 'warning', 4500);
+      if (iWon) confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 } });
+      showToast(iWon ? '🏆 VÔ ĐỊCH VÕ ĐÀI RAGDOLL ARENA!' : 'THUA TRẬN NÀY RỒI! HÃY THỬ LẠI NHÉ!', iWon ? 'success' : 'warning', 4500);
       resetMatch();
       backToMenu();
     } else {
       resetFighterPositions();
+      oppTargetState.hasTarget = false;
       isRoundEnding = false;
     }
   }, 2200);
@@ -617,6 +676,9 @@ function backToMenu() {
   document.getElementById('in-game-controls').classList.add('hidden');
   document.getElementById('main-menu').classList.remove('hidden');
   ragdollMP.leaveRoom();
+  oppTargetState.hasTarget = false;
+  fighterP1.setColor(playerColorHex);
+  fighterP2.setColor(0xf43f5e);
   resetFighterPositions();
   updateCameraTarget();
 }
@@ -627,36 +689,81 @@ ragdollMP.on('game_start', (data) => {
   document.getElementById('modal-create-room').classList.add('hidden');
   document.getElementById('modal-join-room').classList.add('hidden');
   gameMode = 'ONLINE';
+  currentRoundId = 0;
+  oppTargetState.hasTarget = false;
+  resetMatch();
   enterMatchUI();
 
-  if (data.players) {
-    document.getElementById('hud-p1-name').innerText = data.players[0].name.toUpperCase();
-    document.getElementById('hud-p2-name').innerText = data.players[1].name.toUpperCase();
+  if (data.players && data.players.p1 && data.players.p2) {
+    document.getElementById('hud-p1-name').innerText = (data.players.p1.name || 'P1').toUpperCase();
+    document.getElementById('hud-p2-name').innerText = (data.players.p2.name || 'P2').toUpperCase();
+    if (data.players.p1.color) fighterP1.setColor(data.players.p1.color);
+    if (data.players.p2.color) fighterP2.setColor(data.players.p2.color);
   }
-  showToast('Đối thủ đã lên đài! Bắt đầu đấu!', 'success');
+  showToast('Đối thủ đã lên đài! Bắt đầu chiến!', 'success');
 });
 
 ragdollMP.on('opponent_state', (data) => {
   const opp = myRole === 'p1' ? fighterP2 : fighterP1;
-  opp.root.position.set(data.x, data.y, data.z);
-  opp.root.rotation.y = data.rotY;
+  oppTargetState.hasTarget = true;
+  oppTargetState.x = data.x;
+  oppTargetState.y = data.y;
+  oppTargetState.z = data.z;
+  oppTargetState.rotY = data.rotY;
+  oppTargetState.isRagdoll = !!data.isRagdoll;
+  oppTargetState.isSprinting = !!data.isSprinting;
+  oppTargetState.isFallingOff = !!data.isFallingOff;
+
   if (data.isPunching && !opp.isPunching) opp.punch();
-  opp.isRagdoll = data.isRagdoll;
-  opp.isSprinting = !!data.isSprinting;
 });
 
-ragdollMP.on('sync_scores', (scores) => {
+ragdollMP.on('received_hit', (hitData) => {
+  const myFighter = myRole === 'p1' ? fighterP1 : fighterP2;
+  if (!myFighter.isRagdoll && !myFighter.isFallingOff && !isRoundEnding) {
+    sounds.playPunch();
+    particles.createPunchStars(myFighter.root.position.x, 1.25, myFighter.root.position.z, 18);
+    screenShake = 0.28;
+    myFighter.takeHit(new THREE.Vector3(hitData.vx, hitData.vy, hitData.vz));
+  }
+});
+
+ragdollMP.on('round_result', (data) => {
   if (myRole === 'p2') {
-    p1Score = scores.p1;
-    p2Score = scores.p2;
+    isRoundEnding = true;
+    sounds.playFallRing();
+    p1Score = data.scores.p1;
+    p2Score = data.scores.p2;
     p1ScoreEl.innerText = p1Score;
     p2ScoreEl.innerText = p2Score;
+
+    const iWon = (data.winner === 'p2');
+    koBanner.innerHTML = iWon
+      ? '<span>💥</span> RING OUT! BẠN GHI ĐIỂM!'
+      : '<span>🤖</span> RING OUT! ĐỐI THỦ GHI ĐIỂM!';
+    koBanner.classList.add('show');
+
+    setTimeout(() => {
+      koBanner.classList.remove('show');
+      if (p1Score >= targetScore || p2Score >= targetScore) {
+        sounds.playVictory();
+        if (iWon) confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 } });
+        showToast(iWon ? '🏆 VÔ ĐỊCH VÕ ĐÀI RAGDOLL ARENA!' : 'THUA TRẬN NÀY RỒI! HÃY THỬ LẠI NHÉ!', iWon ? 'success' : 'warning', 4500);
+        resetMatch();
+        backToMenu();
+      } else {
+        resetFighterPositions();
+        oppTargetState.hasTarget = false;
+        isRoundEnding = false;
+      }
+    }, 2200);
   }
 });
 
 ragdollMP.on('player_disconnected', () => {
-  showToast('Đối thủ đã rời võ đài!', 'warning');
-  backToMenu();
+  if (gameMode === 'ONLINE') {
+    showToast('Đối thủ đã rời võ đài!', 'warning');
+    backToMenu();
+  }
 });
 
 // UI LOBBY EVENT LISTENERS
@@ -664,6 +771,8 @@ document.getElementById('btn-play-ai').addEventListener('click', () => {
   sounds.playClick();
   gameMode = 'AI';
   myRole = 'p1';
+  fighterP1.setColor(playerColorHex);
+  fighterP2.setColor(0xf43f5e);
   document.getElementById('hud-p1-name').innerText = playerName.toUpperCase();
   document.getElementById('hud-p2-name').innerText = 'BOT';
   resetMatch();
@@ -687,7 +796,7 @@ document.getElementById('btn-open-create-room').addEventListener('click', async 
   modalOnlineMenu.classList.add('hidden');
   requestLandscape();
   try {
-    const res = await ragdollMP.createRoom(playerName);
+    const res = await ragdollMP.createRoom(playerName, playerColorHex);
     roomCode = res.roomCode;
     myRole = 'p1';
     document.getElementById('label-room-code').innerText = roomCode;
@@ -723,13 +832,9 @@ document.getElementById('btn-confirm-join').addEventListener('click', async () =
     return;
   }
   try {
-    const res = await ragdollMP.joinRoom(code, playerName);
+    const res = await ragdollMP.joinRoom(code, playerName, playerColorHex);
     roomCode = res.roomCode;
     myRole = 'p2';
-    document.getElementById('modal-join-room').classList.add('hidden');
-    gameMode = 'ONLINE';
-    enterMatchUI();
-    showToast('Đã tham gia phòng thi đấu thành công!', 'success');
   } catch (e) {
     showToast(e.message || 'Lỗi tham gia phòng!', 'error');
   }
@@ -918,21 +1023,45 @@ function animate() {
     }
 
     // LUÔN UPDATE CẢ 2 VÕ SĨ MỖI FRAME
-    if (myRole === 'p1') {
+    if (gameMode === 'AI') {
       fighterP1.update(dt, myMoveInput);
-      const botInput = gameMode === 'AI' ? updateBotAI(dt) : { x: 0, z: 0 };
-      if (gameMode === 'AI' && fighterP2.isSprinting && !fighterP2.isRagdoll) {
+      const botInput = updateBotAI(dt);
+      if (fighterP2.isSprinting && !fighterP2.isRagdoll) {
         if (Math.random() < 0.25) particles.createSprintTrail(fighterP2.root.position.x, fighterP2.root.position.z, fighterP2.root.rotation.y);
       }
       fighterP2.update(dt, botInput);
-    } else {
-      fighterP2.update(dt, myMoveInput);
-      fighterP1.update(dt, { x: 0, z: 0 });
-    }
+    } else if (gameMode === 'ONLINE') {
+      myFighter.update(dt, myMoveInput);
 
-    checkCombat(dt);
+      const opp = myRole === 'p1' ? fighterP2 : fighterP1;
+      let remoteMoveVec = { x: 0, z: 0 };
+      if (oppTargetState.hasTarget) {
+        const dx = oppTargetState.x - opp.root.position.x;
+        const dy = oppTargetState.y - opp.root.position.y;
+        const dz = oppTargetState.z - opp.root.position.z;
+        const lerpAmt = Math.min(dt * 18, 1.0);
 
-    if (gameMode === 'ONLINE') {
+        opp.root.position.x += dx * lerpAmt;
+        opp.root.position.y += dy * lerpAmt;
+        opp.root.position.z += dz * lerpAmt;
+
+        let rotDiff = oppTargetState.rotY - opp.root.rotation.y;
+        while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
+        while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
+        opp.root.rotation.y += rotDiff * lerpAmt;
+
+        if (!oppTargetState.isRagdoll && !oppTargetState.isFallingOff && Math.hypot(dx, dz) > 0.02) {
+          remoteMoveVec = { x: dx / Math.max(dt, 0.016), z: dz / Math.max(dt, 0.016) };
+        }
+        opp.isRagdoll = oppTargetState.isRagdoll;
+        opp.isSprinting = oppTargetState.isSprinting;
+        opp.isFallingOff = oppTargetState.isFallingOff;
+      }
+      if (opp.isSprinting && !opp.isRagdoll && Math.random() < 0.25) {
+        particles.createSprintTrail(opp.root.position.x, opp.root.position.z, opp.root.rotation.y);
+      }
+      opp.update(dt, remoteMoveVec);
+
       ragdollMP.sendState({
         x: myFighter.root.position.x,
         y: myFighter.root.position.y,
@@ -940,9 +1069,12 @@ function animate() {
         rotY: myFighter.root.rotation.y,
         isPunching: myFighter.isPunching,
         isRagdoll: myFighter.isRagdoll,
-        isSprinting: myFighter.isSprinting
+        isSprinting: myFighter.isSprinting,
+        isFallingOff: myFighter.isFallingOff
       });
     }
+
+    checkCombat(dt);
   }
 
   // Camera Shake & LookAt

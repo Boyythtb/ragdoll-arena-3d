@@ -41,10 +41,11 @@ export class RagdollMultiplayer {
     this.myRole = 'p1'; // 'p1' (Host) hoặc 'p2' (Guest)
     this.roomRef = null;
     this.callbacks = {};
-    this.roomListener = null;
-    this.opponentListener = null;
-    this.scoreListener = null;
+    this.unsubscribers = [];
     this.lastSent = 0;
+    this.gameStartedEmitted = false;
+    this.lastHitTs = 0;
+    this.lastRoundId = 0;
   }
 
   on(event, cb) {
@@ -58,8 +59,20 @@ export class RagdollMultiplayer {
     }
   }
 
+  clearListeners() {
+    this.unsubscribers.forEach(unsub => {
+      try { unsub(); } catch (e) {}
+    });
+    this.unsubscribers = [];
+  }
+
   // TẠO PHÒNG MỚI (P1 - Host)
-  async createRoom(playerName) {
+  async createRoom(playerName, colorHex = 0x0284c7) {
+    this.clearListeners();
+    this.gameStartedEmitted = false;
+    this.lastHitTs = 0;
+    this.lastRoundId = 0;
+
     let roomCode = generateRoomCode();
     let rRef = ref(db, `ragdoll_rooms/${roomCode}`);
     let snapshot = await get(rRef);
@@ -76,17 +89,23 @@ export class RagdollMultiplayer {
     this.roomRef = rRef;
 
     const initialData = {
-      code: roomCode,
-      state: 'WAITING',
-      targetScore: 5,
-      createdAt: Date.now(),
-      players: {
-        p1: { id: myClientId, name: playerName || 'Đô Vật 1', role: 'p1' }
+      meta: {
+        code: roomCode,
+        state: 'WAITING',
+        targetScore: 5,
+        createdAt: Date.now()
       },
-      scores: { p1: 0, p2: 0 },
+      players: {
+        p1: { id: myClientId, name: playerName || 'Đô Vật 1', color: colorHex, role: 'p1' }
+      },
+      roundState: {
+        scores: { p1: 0, p2: 0 },
+        winner: null,
+        roundId: 0
+      },
       positions: {
-        p1: { x: -3.5, y: 1.5, z: 0, rotY: 0, isPunching: false, isRagdoll: false },
-        p2: { x: 3.5, y: 1.5, z: 0, rotY: Math.PI, isPunching: false, isRagdoll: false }
+        p1: { x: -3.2, y: 0, z: 0, rotY: Math.PI / 2, isPunching: false, isRagdoll: false, isSprinting: false, isFallingOff: false },
+        p2: { x: 3.2, y: 0, z: 0, rotY: -Math.PI / 2, isPunching: false, isRagdoll: false, isSprinting: false, isFallingOff: false }
       }
     };
 
@@ -97,7 +116,12 @@ export class RagdollMultiplayer {
   }
 
   // VÀO PHÒNG ĐÃ CÓ (P2 - Guest)
-  async joinRoom(roomCode, playerName) {
+  async joinRoom(roomCode, playerName, colorHex = 0xf43f5e) {
+    this.clearListeners();
+    this.gameStartedEmitted = false;
+    this.lastHitTs = 0;
+    this.lastRoundId = 0;
+
     const code = roomCode.toUpperCase().trim();
     const rRef = ref(db, `ragdoll_rooms/${code}`);
     const snap = await get(rRef);
@@ -116,8 +140,8 @@ export class RagdollMultiplayer {
     this.roomRef = rRef;
 
     await update(ref(db, `ragdoll_rooms/${code}`), {
-      'players/p2': { id: myClientId, name: playerName || 'Đô Vật 2', role: 'p2' },
-      state: 'PLAYING'
+      'players/p2': { id: myClientId, name: playerName || 'Đô Vật 2', color: colorHex, role: 'p2' },
+      'meta/state': 'PLAYING'
     });
 
     onDisconnect(ref(db, `ragdoll_rooms/${code}/players/p2`)).remove();
@@ -126,48 +150,88 @@ export class RagdollMultiplayer {
   }
 
   listenToRoom() {
-    if (!this.roomRef) return;
+    if (!this.currentRoomCode) return;
+    const code = this.currentRoomCode;
 
-    this.roomListener = onValue(this.roomRef, (snap) => {
+    // 1. Chỉ lắng nghe meta (WAITING -> PLAYING -> Xóa phòng) - KHÔNG bị kích hoạt khi di chuyển
+    const metaRef = ref(db, `ragdoll_rooms/${code}/meta`);
+    const unsubMeta = onValue(metaRef, async (snap) => {
       if (!snap.exists()) {
-        this.emit('player_disconnected', {});
+        if (this.currentRoomCode) {
+          this.emit('player_disconnected', {});
+        }
         return;
       }
-      const data = snap.val();
-
-      if (data.state === 'PLAYING' && data.players && data.players.p1 && data.players.p2) {
+      const meta = snap.val();
+      if (meta.state === 'PLAYING' && !this.gameStartedEmitted) {
+        this.gameStartedEmitted = true;
+        const playersSnap = await get(ref(db, `ragdoll_rooms/${code}/players`));
+        const playersData = playersSnap.val() || {};
         this.emit('game_start', {
-          players: [data.players.p1, data.players.p2],
-          scores: data.scores
+          players: playersData
         });
       }
+    });
+    this.unsubscribers.push(unsubMeta);
 
-      if (this.myRole === 'p1' && data.state === 'PLAYING' && !data.players.p2) {
+    // 2. Lắng nghe thay đổi người chơi (VD: P2 rời phòng)
+    const playersRef = ref(db, `ragdoll_rooms/${code}/players`);
+    const unsubPlayers = onValue(playersRef, (snap) => {
+      if (!snap.exists()) {
+        if (this.currentRoomCode && this.gameStartedEmitted) {
+          this.emit('player_disconnected', {});
+        }
+        return;
+      }
+      const players = snap.val();
+      if (this.gameStartedEmitted && (!players.p1 || !players.p2)) {
         this.emit('player_disconnected', {});
       }
     });
+    this.unsubscribers.push(unsubPlayers);
 
-    // Lắng nghe vị trí đối thủ
+    // 3. Lắng nghe vị trí riêng của đối thủ (Băng thông siêu nhẹ, không spam toàn phòng)
     const oppKey = this.myRole === 'p1' ? 'p2' : 'p1';
-    this.opponentListener = onValue(ref(db, `ragdoll_rooms/${this.currentRoomCode}/positions/${oppKey}`), (snap) => {
+    const oppPosRef = ref(db, `ragdoll_rooms/${code}/positions/${oppKey}`);
+    const unsubOpp = onValue(oppPosRef, (snap) => {
       if (snap.exists()) {
         this.emit('opponent_state', snap.val());
       }
     });
+    this.unsubscribers.push(unsubOpp);
 
-    // Lắng nghe điểm số
-    this.scoreListener = onValue(ref(db, `ragdoll_rooms/${this.currentRoomCode}/scores`), (snap) => {
+    // 4. Lắng nghe ĐÒN ĐÁNH trúng mình từ đối thủ (Hit Authority Transfer)
+    const myHitRef = ref(db, `ragdoll_rooms/${code}/hits/${this.myRole}`);
+    const unsubHit = onValue(myHitRef, (snap) => {
       if (snap.exists()) {
-        this.emit('sync_scores', snap.val());
+        const hitData = snap.val();
+        if (hitData.ts && hitData.ts > this.lastHitTs) {
+          this.lastHitTs = hitData.ts;
+          this.emit('received_hit', hitData);
+        }
       }
     });
+    this.unsubscribers.push(unsubHit);
+
+    // 5. Lắng nghe kết quả hiệp & đồng bộ tỷ số
+    const roundRef = ref(db, `ragdoll_rooms/${code}/roundState`);
+    const unsubRound = onValue(roundRef, (snap) => {
+      if (snap.exists()) {
+        const rData = snap.val();
+        if (rData.roundId > this.lastRoundId) {
+          this.lastRoundId = rData.roundId;
+          this.emit('round_result', rData);
+        }
+      }
+    });
+    this.unsubscribers.push(unsubRound);
   }
 
-  // Gửi trạng thái nhân vật (Tọa độ, góc xoay, đấm, té ngã)
+  // Gửi trạng thái nhân vật (~30Hz, có đủ isSprinting, isFallingOff)
   sendState(stateData) {
-    if (!this.roomRef || !this.currentRoomCode) return;
+    if (!this.currentRoomCode || !this.gameStartedEmitted) return;
     const now = performance.now();
-    if (now - this.lastSent < 25) return; // 40Hz
+    if (now - this.lastSent < 33) return;
     this.lastSent = now;
 
     set(ref(db, `ragdoll_rooms/${this.currentRoomCode}/positions/${this.myRole}`), {
@@ -176,30 +240,49 @@ export class RagdollMultiplayer {
       z: Number(stateData.z.toFixed(2)),
       rotY: Number(stateData.rotY.toFixed(2)),
       isPunching: !!stateData.isPunching,
-      isRagdoll: !!stateData.isRagdoll
+      isRagdoll: !!stateData.isRagdoll,
+      isSprinting: !!stateData.isSprinting,
+      isFallingOff: !!stateData.isFallingOff
     });
   }
 
-  async updateScores(scores, winner) {
+  // Gửi lực đánh/húc sang đối thủ khi đấm trúng
+  sendHit(targetRole, vec) {
     if (!this.currentRoomCode) return;
-    await update(ref(db, `ragdoll_rooms/${this.currentRoomCode}`), {
+    set(ref(db, `ragdoll_rooms/${this.currentRoomCode}/hits/${targetRole}`), {
+      vx: Number(vec.x.toFixed(2)),
+      vy: Number(vec.y.toFixed(2)),
+      vz: Number(vec.z.toFixed(2)),
+      ts: Date.now()
+    });
+  }
+
+  // Host (P1) đồng bộ kết quả hiệp đấu
+  async updateRoundState(scores, winner, roundId) {
+    if (!this.currentRoomCode) return;
+    await set(ref(db, `ragdoll_rooms/${this.currentRoomCode}/roundState`), {
       scores,
-      lastWinner: winner,
-      roundTimestamp: Date.now()
+      winner,
+      roundId,
+      ts: Date.now()
     });
   }
 
   leaveRoom() {
-    if (this.roomRef) {
-      if (this.roomListener) off(this.roomRef, 'value', this.roomListener);
-      if (this.myRole === 'p1') {
-        remove(this.roomRef);
-      } else {
-        remove(ref(db, `ragdoll_rooms/${this.currentRoomCode}/players/p2`));
-      }
-    }
+    this.clearListeners();
+    const code = this.currentRoomCode;
+    const role = this.myRole;
     this.currentRoomCode = null;
     this.roomRef = null;
+    this.gameStartedEmitted = false;
+
+    if (code) {
+      if (role === 'p1') {
+        remove(ref(db, `ragdoll_rooms/${code}`));
+      } else {
+        remove(ref(db, `ragdoll_rooms/${code}/players/p2`));
+      }
+    }
   }
 }
 
