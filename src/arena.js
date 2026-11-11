@@ -34,8 +34,8 @@ export function createArena() {
   woodTex.wrapS = THREE.RepeatWrapping;
   woodTex.wrapT = THREE.RepeatWrapping;
   woodTex.repeat.set(10, 10);
-  woodMat.map = woodTex;
-  woodMat.needsUpdate = true;
+  floorMat.map = woodTex;
+  floorMat.needsUpdate = true;
 
   // 2. VÕ ĐÀI NỔI CHÍNH GIỮA (FLOATING WRESTLING RING 12x12)
   const ringSize = 13.5;
