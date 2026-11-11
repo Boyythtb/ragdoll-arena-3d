@@ -105,7 +105,7 @@ window.addEventListener('keyup', (e) => {
 
 // CLICK CHUỘT / CHẠM ĐỂ ĐẤM
 window.addEventListener('mousedown', (e) => {
-  if (gameMode === 'MENU' || e.target.closest('#main-menu') || e.target.closest('.tboy-modal-overlay')) return;
+  if (gameMode === 'MENU' || e.target.closest('#main-menu') || e.target.closest('.tboy-modal-overlay') || e.target.closest('#hud')) return;
   handlePunch();
 });
 
@@ -135,11 +135,9 @@ function updateBotAI(dt) {
   const botSpeed = 4.2;
 
   if (dist > 1.6) {
-    // Lao tới tiếp cận P1
     moveInput.x = (dx / dist) * botSpeed;
     moveInput.z = (dz / dist) * botSpeed;
   } else {
-    // Khoảng cách gần: Tung cú đấm ngẫu nhiên
     if (Math.random() < 0.05) {
       fighterP2.punch();
     }
@@ -168,10 +166,9 @@ function checkCombat(dt) {
       sounds.playPunch();
       particles.createPunchStars(p2BodyPos.x, p2BodyPos.y, p2BodyPos.z, 14);
 
-      // Hướng văng ngược lại cú đấm
       const knockbackDir = new THREE.Vector3().subVectors(p2.root.position, p1.root.position).normalize();
-      knockbackDir.y = 0.6; // Đấm bay bổng lên
-      knockbackDir.multiplyScalar(14.0); // Lực đấm cực mạnh
+      knockbackDir.y = 0.6;
+      knockbackDir.multiplyScalar(14.0);
       p2.takeHit(knockbackDir);
     }
   }
@@ -193,12 +190,12 @@ function checkCombat(dt) {
     }
   }
 
-  // 3. Kiểm tra Rớt Đài (Ring Out < -0.8 hoặc cách tâm quá 6.8m)
+  // 3. Kiểm tra Rớt Đài (Ring Out)
   const ringLimit = 6.6;
   if (!p1.isRagdoll && (Math.abs(p1.root.position.x) > ringLimit || Math.abs(p1.root.position.z) > ringLimit)) {
-    handleRingOut('p2'); // P2 thắng hiệp này
+    handleRingOut('p2');
   } else if (!p2.isRagdoll && (Math.abs(p2.root.position.x) > ringLimit || Math.abs(p2.root.position.z) > ringLimit)) {
-    handleRingOut('p1'); // P1 thắng hiệp này
+    handleRingOut('p1');
   }
 }
 
@@ -408,8 +405,8 @@ btnToggleTips.addEventListener('click', () => {
   iconToggleTips.innerText = isCollapsed ? '▸' : '▾';
 });
 
-// SPLASH LOADING
-window.addEventListener('load', () => {
+// SPLASH LOADING CHẠY TỰ ĐỘNG NGAY LẬP TỨC (KHÔNG BỊ TREO BỞI SỰ KIỆN LOAD)
+function dismissSplash() {
   const fill = document.getElementById('loading-bar-inner');
   const splash = document.getElementById('loading-screen');
   let p = 0;
@@ -419,11 +416,22 @@ window.addEventListener('load', () => {
     if (p >= 100) {
       clearInterval(interval);
       setTimeout(() => {
-        if (splash) splash.classList.add('fade-out');
-      }, 300);
+        if (splash) {
+          splash.classList.add('fade-out');
+          setTimeout(() => {
+            splash.style.display = 'none';
+          }, 350);
+        }
+      }, 200);
     }
-  }, 60);
-});
+  }, 80);
+}
+if (document.readyState === 'complete') {
+  dismissSplash();
+} else {
+  window.addEventListener('load', dismissSplash);
+  setTimeout(dismissSplash, 800); // Fallback đảm bảo 100% không bị kẹt màn hình tải
+}
 
 // ANIMATION LOOP
 let lastFrameTime = performance.now();
@@ -436,7 +444,6 @@ function animate() {
   lastFrameTime = now;
 
   if (gameMode !== 'MENU') {
-    // ĐIỀU KHIỂN NHÂN VẬT CỦA MÌNH
     const myFighter = myRole === 'p1' ? fighterP1 : fighterP2;
     const moveInput = { x: 0, z: 0 };
     const speed = 4.8;
