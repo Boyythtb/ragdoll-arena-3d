@@ -693,11 +693,30 @@ html, body {
 }
 
 .btn-sprint {
-  width: 72px;
-  height: 72px;
-  margin-right: 10px; /* Vòng cung nhẹ theo ngón tay cái */
+  width: 66px;
+  height: 66px;
+  margin-right: 18px; /* Vòng cung nhẹ theo ngón tay cái */
   background: linear-gradient(145deg, #fbbf24 0%, #f59e0b 65%, #d97706 100%);
   box-shadow: 0 10px 24px rgba(245, 158, 11, 0.42), inset 0 2px 6px rgba(255, 255, 255, 0.55);
+}
+
+.btn-grab {
+  width: 68px;
+  height: 68px;
+  margin-right: 6px;
+  background: linear-gradient(145deg, #34d399 0%, #10b981 65%, #059669 100%);
+  box-shadow: 0 10px 24px rgba(16, 185, 129, 0.42), inset 0 2px 6px rgba(255, 255, 255, 0.55);
+}
+
+.btn-grab.holding {
+  background: linear-gradient(145deg, #f43f5e 0%, #e11d48 65%, #be123c 100%);
+  box-shadow: 0 0 26px rgba(244, 63, 94, 0.9), inset 0 2px 6px rgba(255, 255, 255, 0.7);
+  animation: pulse-throw 0.6s infinite alternate ease-in-out;
+}
+
+@keyframes pulse-throw {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.08); }
 }
 
 .btn-sprint.active-sprint {
@@ -713,10 +732,91 @@ html, body {
 }
 
 .btn-punch {
-  width: 88px;
-  height: 88px;
+  width: 84px;
+  height: 84px;
   background: linear-gradient(145deg, #fb7185 0%, #f43f5e 60%, #e11d48 100%);
   box-shadow: 0 12px 28px rgba(244, 63, 94, 0.45), inset 0 2px 6px rgba(255, 255, 255, 0.55);
+}
+
+/* BANNER VÙNG VẪY THOÁT RA */
+.struggle-banner {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 85;
+  background: rgba(220, 38, 38, 0.95);
+  border: 2px solid #fecaca;
+  backdrop-filter: blur(12px);
+  padding: 8px 18px;
+  border-radius: 9999px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 10px 30px rgba(220, 38, 38, 0.4);
+  animation: pulse-struggle 0.4s infinite alternate ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes pulse-struggle {
+  0% { transform: translateX(-50%) scale(0.96); }
+  100% { transform: translateX(-50%) scale(1.04); }
+}
+
+.struggle-title {
+  font-size: 13px;
+  font-weight: 950;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.struggle-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.s-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1.5px solid #ffffff;
+  transition: all 0.15s ease;
+}
+
+.s-dot.filled {
+  background: #22c55e;
+  box-shadow: 0 0 10px #22c55e;
+  transform: scale(1.2);
+}
+
+/* BANNER GIÓ BÃO */
+.wind-banner {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 84;
+  background: rgba(2, 132, 199, 0.92);
+  border: 2px solid #bae6fd;
+  color: #ffffff;
+  padding: 8px 20px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 950;
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  animation: wind-float 1.5s infinite ease-in-out;
+}
+
+@keyframes wind-float {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-48%) translateY(-4px); }
 }
 
 .act-keycap {
@@ -1709,14 +1809,20 @@ html, body {
   }
 
   .btn-sprint {
-    width: 64px;
-    height: 64px;
-    margin-right: 6px;
+    width: 58px;
+    height: 58px;
+    margin-right: 12px;
+  }
+
+  .btn-grab {
+    width: 60px;
+    height: 60px;
+    margin-right: 4px;
   }
 
   .btn-punch {
-    width: 78px;
-    height: 78px;
+    width: 72px;
+    height: 72px;
   }
 
   .act-icon {

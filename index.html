@@ -166,10 +166,11 @@
         <div class="desktop-key-hint-pill">
           <span><b>WASD</b> Di chuyển</span> ·
           <span><b>SHIFT</b> Giơ tay tăng tốc</span> ·
-          <span><b>SPACE / Click</b> Đấm</span>
+          <span><b>SPACE</b> Đấm</span> ·
+          <span><b>E</b> Túm & Ném</span>
         </div>
 
-        <!-- 2 NÚT HÀNH ĐỘNG XẾP THEO VÒNG CUNG NGÓN TAY CÁI BÊN PHẢI -->
+        <!-- 3 NÚT HÀNH ĐỘNG THEO VÒNG CUNG NGÓN CÁI: TĂNG TỐC, TÚM/NÉM, ĐẤM -->
         <div class="action-buttons-ragdoll">
           <button id="btn-sprint" class="btn-game-act btn-sprint" aria-label="Tăng Tốc">
             <span class="act-keycap">SHIFT</span>
@@ -179,12 +180,35 @@
             <span class="act-label">TĂNG TỐC</span>
           </button>
 
+          <button id="btn-grab" class="btn-game-act btn-grab" aria-label="Túm hoặc Ném">
+            <span class="act-keycap">E</span>
+            <span class="act-icon" id="grab-icon">🤲</span>
+            <span class="act-label" id="grab-label">TÚM VÁC</span>
+          </button>
+
           <button id="btn-punch" class="btn-game-act btn-punch" aria-label="Tung Cú Đấm">
             <span class="act-keycap">SPACE</span>
             <span class="act-icon">🥊</span>
             <span class="act-label">ĐẤM</span>
           </button>
         </div>
+      </div>
+
+      <!-- BANNER BẬT BÁO VÙNG VẪY THOÁT RA (STRUGGLE PROMPT) -->
+      <div id="struggle-banner" class="struggle-banner hidden">
+        <div class="struggle-title">⚡ BẤM ĐẤM LIÊN TỤC ĐỂ THOÁT! ⚡</div>
+        <div class="struggle-dots" id="struggle-dots">
+          <span class="s-dot"></span>
+          <span class="s-dot"></span>
+          <span class="s-dot"></span>
+          <span class="s-dot"></span>
+          <span class="s-dot"></span>
+        </div>
+      </div>
+
+      <!-- BANNER CƠN GIÓ BÃO BẤT NGỜ -->
+      <div id="wind-banner" class="wind-banner hidden">
+        <span>💨</span> CƠN GIÓ BÃO BẤT NGỜ!
       </div>
 
       <!-- BANNER KNOCKOUT -->

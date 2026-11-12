@@ -37,6 +37,7 @@ export class RagdollMultiplayer {
     this.unsubscribers = [];
     this.lastSent = 0;
     this.lastHitTs = 0;
+    this.lastActionTs = 0;
     this.lastRoundId = 0;
     this.gameStartedEmitted = false;
   }
@@ -236,6 +237,29 @@ export class RagdollMultiplayer {
       }
     });
     this.unsubscribers.push(unsubRound);
+
+    // 6. Lắng nghe hành động đặc biệt từ đối thủ (Grab, Throw, Break)
+    const oppActionRef = ref(db, `ragdoll_rooms/${code}/actions/${oppKey}`);
+    const unsubAction = onValue(oppActionRef, (snap) => {
+      if (snap.exists()) {
+        const actionData = snap.val();
+        if (actionData.ts && actionData.ts > this.lastActionTs) {
+          this.lastActionTs = actionData.ts;
+          this.emit('opponent_action', actionData);
+        }
+      }
+    });
+    this.unsubscribers.push(unsubAction);
+  }
+
+  // Gửi hành động Túm / Ném / Vùng vẫy sang đối thủ
+  sendAction(actionType, extraData = {}) {
+    if (!this.currentRoomCode) return;
+    set(ref(db, `ragdoll_rooms/${this.currentRoomCode}/actions/${this.myRole}`), {
+      type: actionType,
+      ...extraData,
+      ts: Date.now()
+    });
   }
 
   // Gửi trạng thái nhân vật (~20Hz = 50ms, cực kỳ mượt mà, không nghẽn mạng)

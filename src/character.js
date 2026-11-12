@@ -18,6 +18,17 @@ export class RagdollCharacter {
     this.ragdollTimer = 0;
     this.isFallingOff = false; // Khi rơi khỏi sàn xuống đất
 
+    // TÍNH NĂNG MỚI: TÚM / VÁC & NÉM ĐỐI THỦ
+    this.isHoldingEnemy = false;
+    this.grabbedEnemy = null;
+    this.isBeingHeld = false;
+    this.heldBy = null;
+    this.struggleCount = 0; // Đếm số lần spam nút đánh để thoát
+
+    // BỊ SÉT ĐÁNH (ZAPPED)
+    this.isZapped = false;
+    this.zappedTimer = 0;
+
     // Vận tốc 3D & gia tốc
     this.velocity = new THREE.Vector3();
     this.angularVelocity = new THREE.Vector3();
@@ -186,6 +197,19 @@ export class RagdollCharacter {
 
   // NHẬN ĐÒN SMASH -> CHUYỂN TRẠNG THÁI RAGDOLL UỐN DẺO
   takeHit(impactVec) {
+    if (this.isBeingHeld && this.heldBy) {
+      this.heldBy.isHoldingEnemy = false;
+      this.heldBy.grabbedEnemy = null;
+      this.isBeingHeld = false;
+      this.heldBy = null;
+    }
+    if (this.isHoldingEnemy && this.grabbedEnemy) {
+      this.grabbedEnemy.isBeingHeld = false;
+      this.grabbedEnemy.heldBy = null;
+      this.isHoldingEnemy = false;
+      this.grabbedEnemy = null;
+    }
+
     this.isRagdoll = true;
     this.isPunching = false;
     this.ragdollTimer = 1.3; // 1.3s uốn éo, lăn lộn hài hước
@@ -203,9 +227,127 @@ export class RagdollCharacter {
     this.squashXZ = 1.35;
   }
 
+  // 1. TÚM & VÁC ĐỐI THỦ LÊN ĐẦU
+  liftAndHold(target) {
+    if (this.isHoldingEnemy || this.isBeingHeld || this.isRagdoll || this.isFallingOff) return;
+    this.isHoldingEnemy = true;
+    this.grabbedEnemy = target;
+
+    target.isBeingHeld = true;
+    target.heldBy = this;
+    target.struggleCount = 0;
+    target.isRagdoll = false;
+    target.isFallingOff = false;
+    target.velocity.set(0, 0, 0);
+
+    // Giơ 2 cánh tay thẳng lên trời vác đối thủ
+    this.leftArmPivot.rotation.x = -Math.PI + 0.25;
+    this.rightArmPivot.rotation.x = -Math.PI + 0.25;
+  }
+
+  // 2. NÉM ĐỐI THỦ BAY VĂNG ĐI
+  throwEnemy() {
+    if (!this.isHoldingEnemy || !this.grabbedEnemy) return;
+    const target = this.grabbedEnemy;
+
+    this.isHoldingEnemy = false;
+    this.grabbedEnemy = null;
+    target.isBeingHeld = false;
+    target.heldBy = null;
+    target.struggleCount = 0;
+
+    // Hướng ném vọt về phía trước mặt
+    const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.root.rotation.y);
+    const throwVec = forward.clone().multiplyScalar(13.5);
+    throwVec.y = 5.6;
+
+    target.takeHit(throwVec);
+
+    // Người ném giật lùi nhẹ theo phản lực
+    this.velocity.addScaledVector(forward, -2.5);
+  }
+
+  // 3. NGƯỜI BỊ VÁC VÙNG VẪY THOÁT RA (STRUGGLE BREAK FREE)
+  struggleBreak() {
+    if (!this.isBeingHeld || !this.heldBy) return;
+    const carrier = this.heldBy;
+
+    this.isBeingHeld = false;
+    this.heldBy = null;
+    this.struggleCount = 0;
+    carrier.isHoldingEnemy = false;
+    carrier.grabbedEnemy = null;
+
+    // Thoát xuống đất: Đẩy người vác lùi lại và choáng nhẹ
+    const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), carrier.root.rotation.y);
+    carrier.velocity.addScaledVector(forward, -4.5);
+    carrier.takeHit(new THREE.Vector3(-forward.x * 3.5, 2.0, -forward.z * 3.5));
+
+    // Mình tiếp đất an toàn
+    this.root.position.y = 0;
+    this.velocity.set(forward.x * 2.0, 1.5, forward.z * 2.0);
+  }
+
+  // 4. TRƯỢT VỎ CHUỐI
+  slipOnBanana(dir) {
+    if (this.isHoldingEnemy && this.grabbedEnemy) {
+      this.throwEnemy();
+    }
+    this.isRagdoll = true;
+    this.isPunching = false;
+    this.ragdollTimer = 1.45;
+
+    // Hai chân hất tung lên trời
+    this.leftLegPivot.rotation.x = -2.2;
+    this.rightLegPivot.rotation.x = -2.2;
+
+    this.velocity.set(dir.x * 12.0, 4.2, dir.z * 12.0);
+    this.angularVelocity.set(12.0, 18.0, 0);
+
+    this.squashY = 0.6;
+    this.squashXZ = 1.4;
+  }
+
+  // 5. BỊ SÉT ĐÁNH (ZAPPED)
+  getZappedByLightning(nx, nz) {
+    if (this.isHoldingEnemy && this.grabbedEnemy) {
+      this.throwEnemy();
+    }
+    this.isZapped = true;
+    this.zappedTimer = 1.6;
+    if (this.bodyMat) {
+      this.bodyMat.color.setHex(0x334155); // Đen thui hoạt hình
+    }
+
+    this.isRagdoll = true;
+    this.ragdollTimer = 1.6;
+    // Nổ văng bổng lên trời
+    this.velocity.set(nx * 14.0, 8.5, nz * 14.0);
+    this.angularVelocity.set((Math.random() - 0.5) * 22, (Math.random() - 0.5) * 22, (Math.random() - 0.5) * 22);
+  }
+
   update(dt, moveInput = { x: 0, z: 0 }) {
     if (this.punchCooldown > 0) {
       this.punchCooldown = Math.max(0, this.punchCooldown - dt);
+    }
+
+    // HỒI PHỤC MÀU DA SAU KHI BỊ SÉT ĐÁNH
+    if (this.isZapped) {
+      this.zappedTimer -= dt;
+      if (this.zappedTimer <= 0) {
+        this.isZapped = false;
+        this.setColor(this.colorHex);
+      }
+    }
+
+    // NẾU ĐANG BỊ VÁC TRÊN ĐẦU ĐỐI THỦ
+    if (this.isBeingHeld) {
+      // Chân tay quẫy đạp bất lực trên không trung
+      this.leftLegPivot.rotation.x = Math.sin(Date.now() * 0.012) * 1.2;
+      this.rightLegPivot.rotation.x = -Math.sin(Date.now() * 0.012) * 1.2;
+      this.leftArmPivot.rotation.z = Math.sin(Date.now() * 0.015) * 1.1;
+      this.rightArmPivot.rotation.z = -Math.sin(Date.now() * 0.015) * 1.1;
+      return;
     }
 
     // 1. TRẠNG THÁI RƠI KHỎI VÕ ĐÀI XUỐNG ĐẤT (RING OUT FALL)
@@ -290,10 +432,28 @@ export class RagdollCharacter {
     }
 
     // 3. DI CHUYỂN BÌNH THƯỜNG VỚI HIỆU ỨNG WOBBLE UỐN LƯỢN
+    if (this.isHoldingEnemy) {
+      moveInput.x *= 0.65;
+      moveInput.z *= 0.65;
+    }
+
     this.root.position.x += this.velocity.x * dt;
     this.root.position.z += this.velocity.z * dt;
     this.velocity.x *= 0.85;
     this.velocity.z *= 0.85;
+
+    // ĐỒNG BỘ VỊ TRÍ ĐỐI THỦ ĐANG BỊ MÌNH VÁC TRÊN ĐẦU
+    if (this.isHoldingEnemy && this.grabbedEnemy) {
+      const carrierPos = this.root.position;
+      const fwd = new THREE.Vector3(0, 0, 0.25).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.root.rotation.y);
+      this.grabbedEnemy.root.position.set(
+        carrierPos.x + fwd.x,
+        carrierPos.y + 2.18 + Math.abs(Math.sin(this.walkCycle)) * 0.08,
+        carrierPos.z + fwd.z
+      );
+      this.grabbedEnemy.root.rotation.y = this.root.rotation.y + Math.PI / 2;
+      this.grabbedEnemy.torsoGroup.rotation.z = Math.sin(this.walkCycle) * 0.22;
+    }
 
     const isMoving = Math.abs(moveInput.x) > 0.05 || Math.abs(moveInput.z) > 0.05;
     if (isMoving) {
@@ -325,8 +485,13 @@ export class RagdollCharacter {
       this.headPivot.rotation.z = -this.tiltZ * 0.7;
       this.headPivot.rotation.x = this.isSprinting ? -0.25 + Math.sin(this.walkCycle * 2) * 0.15 : Math.sin(this.walkCycle * 2) * 0.12;
 
-      // Tay: Nếu đang Chạy Nhanh -> GIƠ 2 TAY LÊN TRỜI VẪY HÀO HỨNG!
-      if (!this.isPunching) {
+      // Tay: Nếu đang Vác đối thủ hoặc Chạy Nhanh -> GIƠ 2 TAY LÊN TRỜI!
+      if (this.isHoldingEnemy) {
+        this.leftArmPivot.rotation.x = -Math.PI + 0.32;
+        this.rightArmPivot.rotation.x = -Math.PI + 0.32;
+        this.leftArmPivot.rotation.z = -0.22;
+        this.rightArmPivot.rotation.z = 0.22;
+      } else if (!this.isPunching) {
         if (this.isSprinting) {
           this.leftArmPivot.rotation.x = -Math.PI + 0.3 + Math.sin(this.walkCycle * 0.7) * 0.28;
           this.rightArmPivot.rotation.x = -Math.PI + 0.3 - Math.sin(this.walkCycle * 0.7) * 0.28;
@@ -355,7 +520,12 @@ export class RagdollCharacter {
       this.leftLegPivot.rotation.x = 0;
       this.rightLegPivot.rotation.x = 0;
 
-      if (!this.isPunching) {
+      if (this.isHoldingEnemy) {
+        this.leftArmPivot.rotation.x = -Math.PI + 0.32;
+        this.rightArmPivot.rotation.x = -Math.PI + 0.32;
+        this.leftArmPivot.rotation.z = -0.22;
+        this.rightArmPivot.rotation.z = 0.22;
+      } else if (!this.isPunching) {
         if (this.isSprinting) {
           this.leftArmPivot.rotation.x = -Math.PI + 0.3 + Math.sin(this.wobblePhase * 2) * 0.15;
           this.rightArmPivot.rotation.x = -Math.PI + 0.3 - Math.sin(this.wobblePhase * 2) * 0.15;

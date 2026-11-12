@@ -7,6 +7,7 @@ import { ParticleFX } from './particles.js';
 import { sounds } from './sounds.js';
 import { showToast } from './toast.js';
 import { ragdollMP } from './firebase.js';
+import { HazardsManager } from './hazards.js';
 
 // TRẠNG THÁI GAME
 let gameMode = 'MENU'; // 'MENU', 'AI', 'ONLINE'
@@ -37,8 +38,13 @@ const oppTargetState = {
   isSprinting: false,
   isFallingOff: false
 };
+
+// UI ACTION BUTTONS
 const btnPunch = document.getElementById('btn-punch');
 const btnSprint = document.getElementById('btn-sprint');
+const btnGrab = document.getElementById('btn-grab');
+const grabIcon = document.getElementById('grab-icon');
+const grabLabel = document.getElementById('grab-label');
 
 // THREE.JS SCENE SETUP
 const container = document.getElementById('canvas-container');
@@ -89,6 +95,22 @@ const arena = createArena();
 scene.add(arena);
 
 const particles = new ParticleFX(scene);
+
+// HỆ THỐNG YẾU TỐ HỖN LOẠN (VỎ CHUỐI, SÉT ĐÁNH, GIÓ BÃO)
+const hazards = new HazardsManager(scene, sounds, particles);
+const windBanner = document.getElementById('wind-banner');
+hazards.onWindCallback = (evt) => {
+  if (!windBanner) return;
+  if (evt === 'start') {
+    windBanner.classList.remove('hidden');
+    setTimeout(() => windBanner.classList.add('hidden'), 4000);
+  }
+};
+hazards.onLightningCallback = (evt) => {
+  if (evt === 'strike') {
+    screenShake = 0.42;
+  }
+};
 
 // TẠO 2 ĐÔ VẬT RAGDOLL UỐN DẺO
 const fighterP1 = new RagdollCharacter(scene, playerColorHex, true);
@@ -169,6 +191,9 @@ window.addEventListener('keydown', (e) => {
   if (k === ' ') {
     keys.space = true;
     handlePunch();
+  }
+  if (k === 'e') {
+    handleGrab();
   }
 });
 
@@ -278,24 +303,60 @@ if (joystickZone) {
   });
 }
 
-// 2 NÚT HÀNH ĐỘNG BÊN PHẢI: CHẠY NHANH (GIƠ TAY LÊN TRỜI) & ĐẤM
+// BỘ 3 NÚT HÀNH ĐỘNG BÊN PHẢI: CHẠY NHANH, TÚM/NÉM & ĐẤM
+function updateGrabUI(isHolding) {
+  if (!btnGrab) return;
+  if (isHolding) {
+    btnGrab.classList.add('holding');
+    if (grabIcon) grabIcon.innerText = '🚀';
+    if (grabLabel) grabLabel.innerText = 'NÉM VĂNG';
+  } else {
+    btnGrab.classList.remove('holding');
+    if (grabIcon) grabIcon.innerText = '🤲';
+    if (grabLabel) grabLabel.innerText = 'TÚM VÁC';
+  }
+}
 
+let lastGrabActionTime = 0;
+if (btnGrab) {
+  const triggerGrabEvt = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const now = performance.now();
+    if (now - lastGrabActionTime < 100) return;
+    lastGrabActionTime = now;
+    btnGrab.classList.add('pressed');
+    setTimeout(() => btnGrab.classList.remove('pressed'), 120);
+    handleGrab();
+  };
+  btnGrab.addEventListener('pointerdown', triggerGrabEvt);
+  btnGrab.addEventListener('click', triggerGrabEvt);
+}
+
+let lastPunchActionTime = 0;
 if (btnPunch) {
   const triggerPunchEvt = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    const now = performance.now();
+    if (now - lastPunchActionTime < 100) return;
+    lastPunchActionTime = now;
     btnPunch.classList.add('pressed');
     setTimeout(() => btnPunch.classList.remove('pressed'), 120);
     handlePunch();
   };
-  btnPunch.addEventListener('touchstart', triggerPunchEvt, { passive: false });
-  btnPunch.addEventListener('mousedown', triggerPunchEvt);
+  btnPunch.addEventListener('pointerdown', triggerPunchEvt);
+  btnPunch.addEventListener('click', triggerPunchEvt);
 }
 
+let lastSprintActionTime = 0;
 if (btnSprint) {
   const triggerSprintEvt = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    const now = performance.now();
+    if (now - lastSprintActionTime < 100) return;
+    lastSprintActionTime = now;
     btnSprint.classList.add('pressed');
     setTimeout(() => btnSprint.classList.remove('pressed'), 120);
 
@@ -308,8 +369,8 @@ if (btnSprint) {
       btnSprint.classList.add('active-sprint');
     }
   };
-  btnSprint.addEventListener('touchstart', triggerSprintEvt, { passive: false });
-  btnSprint.addEventListener('mousedown', triggerSprintEvt);
+  btnSprint.addEventListener('pointerdown', triggerSprintEvt);
+  btnSprint.addEventListener('click', triggerSprintEvt);
 }
 
 // CLICK CHUỘT TRÊN SÀN ĐẤU ĐỂ ĐẤM (NẾU KHÔNG BẤM VÀO NÚT HAY JOYSTICK)
@@ -318,10 +379,68 @@ window.addEventListener('mousedown', (e) => {
   handlePunch();
 });
 
+function handleGrab() {
+  if (isRoundEnding || gameMode === 'MENU') return;
+  const myFighter = myRole === 'p1' ? fighterP1 : fighterP2;
+  const opponent = myRole === 'p1' ? fighterP2 : fighterP1;
+
+  if (myFighter.isHoldingEnemy) {
+    // ĐANG VÁC ĐỐI THỦ -> NÉM!
+    sounds.playThrow();
+    particles.createPunchStars(myFighter.root.position.x, 2.5, myFighter.root.position.z, 20);
+    screenShake = 0.28;
+    myFighter.throwEnemy();
+    updateGrabUI(false);
+    if (gameMode === 'ONLINE') {
+      ragdollMP.sendAction('throw');
+    }
+  } else {
+    // CHƯA VÁC -> KIỂM TRA ĐỂ TÚM!
+    if (myFighter.isBeingHeld || myFighter.isRagdoll || myFighter.isFallingOff) return;
+    const dist = Math.hypot(opponent.root.position.x - myFighter.root.position.x, opponent.root.position.z - myFighter.root.position.z);
+    if (dist < 2.0 && !opponent.isFallingOff && !opponent.isBeingHeld) {
+      sounds.playGrab();
+      myFighter.liftAndHold(opponent);
+      updateGrabUI(true);
+      showToast('Đã túm được đối thủ! Chạy ra mép đài ném đi!', 'info', 2000);
+      if (gameMode === 'ONLINE') {
+        ragdollMP.sendAction('grab');
+      }
+    } else {
+      showToast('Hãy lại gần đối thủ hơn để túm!', 'warning', 1200);
+    }
+  }
+}
+
 function handlePunch() {
   if (isRoundEnding || gameMode === 'MENU') return;
   const activeFighter = myRole === 'p1' ? fighterP1 : fighterP2;
   const opponent = myRole === 'p1' ? fighterP2 : fighterP1;
+
+  // NẾU ĐANG BỊ VÁC TRÊN ĐẦU: ĐÂY LÀ ĐÒN SPAM ĐỂ THOÁT RA!
+  if (activeFighter.isBeingHeld) {
+    activeFighter.struggleCount++;
+    updateStruggleDots(activeFighter.struggleCount);
+    sounds.playPunch();
+    if (activeFighter.struggleCount >= 5) {
+      activeFighter.struggleBreak();
+      sounds.playBoing();
+      showToast('Bạn đã vùng vẫy thoát hiểm thành công!', 'success');
+      updateGrabUI(false);
+      const struggleBanner = document.getElementById('struggle-banner');
+      if (struggleBanner) struggleBanner.classList.add('hidden');
+      if (gameMode === 'ONLINE') {
+        ragdollMP.sendAction('struggle_break');
+      }
+    }
+    return;
+  }
+
+  // NẾU ĐANG VÁC ĐỐI THỦ MÀ BẤM NÚT ĐẤM THÌ TỰ ĐỘNG NÉM
+  if (activeFighter.isHoldingEnemy) {
+    handleGrab();
+    return;
+  }
 
   // Hỗ trợ tự động xoay mặt về đối thủ nếu ở cự ly gần (< 3.2m)
   if (!activeFighter.isRagdoll && !activeFighter.isFallingOff) {
@@ -336,6 +455,14 @@ function handlePunch() {
   activeFighter.punch();
 }
 
+function updateStruggleDots(count) {
+  const dots = document.querySelectorAll('#struggle-dots .s-dot');
+  dots.forEach((d, idx) => {
+    if (idx < count) d.classList.add('filled');
+    else d.classList.remove('filled');
+  });
+}
+
 // ===================================================
 // BOT AI & HỆ THỐNG CHIẾN ĐẤU
 // ===================================================
@@ -344,7 +471,53 @@ let botStrafe = 0;
 
 function updateBotAI(dt) {
   const moveInput = { x: 0, z: 0 };
-  if (gameMode !== 'AI' || isRoundEnding || fighterP2.isRagdoll || fighterP2.isFallingOff) {
+  if (gameMode !== 'AI' || isRoundEnding || fighterP2.isFallingOff) {
+    fighterP2.isSprinting = false;
+    return moveInput;
+  }
+
+  // 1. NẾU BOT ĐANG BỊ VÁC TRÊN ĐẦU P1: BOT TỰ ĐỘNG SPAM ĐẤM ĐỂ THOÁT RA!
+  if (fighterP2.isBeingHeld) {
+    fighterP2.botStruggleTimer = (fighterP2.botStruggleTimer || 0) + dt;
+    if (fighterP2.botStruggleTimer > 0.28) {
+      fighterP2.botStruggleTimer = 0;
+      fighterP2.struggleCount++;
+      sounds.playPunch();
+      if (fighterP2.struggleCount >= 5) {
+        fighterP2.struggleBreak();
+        sounds.playBoing();
+        updateGrabUI(false);
+        showToast('Đối thủ đã vùng vẫy thoát khỏi tay bạn!', 'warning');
+      }
+    }
+    return moveInput;
+  }
+
+  // 2. NẾU BOT ĐANG VÁC P1: BOT CHẠY RA MÉP DÂY VÀ NÉM P1!
+  if (fighterP2.isHoldingEnemy) {
+    fighterP2.botCarryTimer = (fighterP2.botCarryTimer || 0) + dt;
+    const p2Pos = fighterP2.root.position;
+    const toEdgeX = Math.sign(p2Pos.x || 1) * 5.5;
+    const toEdgeZ = Math.sign(p2Pos.z || 1) * 5.5;
+    const edgeDist = Math.hypot(toEdgeX - p2Pos.x, toEdgeZ - p2Pos.z) || 1;
+    moveInput.x = ((toEdgeX - p2Pos.x) / edgeDist) * 3.8;
+    moveInput.z = ((toEdgeZ - p2Pos.z) / edgeDist) * 3.8;
+    fighterP2.root.rotation.y = Math.atan2(moveInput.x, moveInput.z);
+
+    const distFromCenter = Math.hypot(p2Pos.x, p2Pos.z);
+    if (distFromCenter > 4.6 || fighterP2.botCarryTimer > 2.0) {
+      sounds.playThrow();
+      particles.createPunchStars(p2Pos.x, 2.5, p2Pos.z, 20);
+      screenShake = 0.28;
+      fighterP2.throwEnemy();
+      fighterP2.botCarryTimer = 0;
+    }
+    p2Pos.x += moveInput.x * dt;
+    p2Pos.z += moveInput.z * dt;
+    return moveInput;
+  }
+
+  if (fighterP2.isRagdoll) {
     fighterP2.isSprinting = false;
     return moveInput;
   }
@@ -354,6 +527,15 @@ function updateBotAI(dt) {
   const dx = p1Pos.x - p2Pos.x;
   const dz = p1Pos.z - p2Pos.z;
   const dist = Math.hypot(dx, dz);
+
+  // 3. NẾU P1 ĐANG RAGDOLL VÀ BOT Ở GẦN: BOT CÓ THỂ TÚM P1!
+  if (fighterP1.isRagdoll && dist < 1.8 && !fighterP2.isHoldingEnemy && Math.random() < 0.08) {
+    sounds.playGrab();
+    fighterP2.liftAndHold(fighterP1);
+    fighterP2.botCarryTimer = 0;
+    showToast('Bạn đã bị Bot túm lên đầu! Bấm ĐẤM liên tục để thoát!', 'warning', 2500);
+    return moveInput;
+  }
 
   botDecisionTimer -= dt;
   if (botDecisionTimer <= 0) {
@@ -636,6 +818,18 @@ function handleRingOut(winner) {
 }
 
 function resetFighterPositions() {
+  if (fighterP1.isHoldingEnemy) { fighterP1.isHoldingEnemy = false; fighterP1.grabbedEnemy = null; }
+  if (fighterP2.isHoldingEnemy) { fighterP2.isHoldingEnemy = false; fighterP2.grabbedEnemy = null; }
+  if (fighterP1.isBeingHeld) { fighterP1.isBeingHeld = false; fighterP1.heldBy = null; }
+  if (fighterP2.isBeingHeld) { fighterP2.isBeingHeld = false; fighterP2.heldBy = null; }
+  fighterP1.struggleCount = 0;
+  fighterP2.struggleCount = 0;
+  updateGrabUI(false);
+  hazards.reset();
+  const struggleBanner = document.getElementById('struggle-banner');
+  if (struggleBanner) struggleBanner.classList.add('hidden');
+  updateStruggleDots(0);
+
   fighterP1.root.position.set(-3.2, 0, 0);
   fighterP1.root.rotation.y = Math.PI / 2;
   fighterP1.velocity.set(0, 0, 0);
@@ -817,6 +1011,26 @@ ragdollMP.on('received_hit', (hitData) => {
     particles.createPunchStars(myFighter.root.position.x, 1.25, myFighter.root.position.z, 18);
     screenShake = 0.28;
     myFighter.takeHit(new THREE.Vector3(hitData.vx, hitData.vy, hitData.vz));
+  }
+});
+
+ragdollMP.on('opponent_action', (data) => {
+  const opp = myRole === 'p1' ? fighterP2 : fighterP1;
+  const me = myRole === 'p1' ? fighterP1 : fighterP2;
+
+  if (data.type === 'grab') {
+    sounds.playGrab();
+    opp.liftAndHold(me);
+    showToast('Bạn đã bị đối thủ túm lên đầu! Bấm ĐẤM liên tục để thoát!', 'warning', 2500);
+  } else if (data.type === 'throw') {
+    sounds.playThrow();
+    opp.throwEnemy();
+    updateGrabUI(false);
+  } else if (data.type === 'struggle_break') {
+    sounds.playBoing();
+    opp.struggleBreak();
+    updateGrabUI(false);
+    showToast('Đối thủ đã vùng vẫy thoát khỏi tay bạn!', 'warning');
   }
 });
 
@@ -1112,6 +1326,7 @@ if (document.readyState === 'complete') {
 window.gameDebug = {
   fighterP1,
   fighterP2,
+  hazards,
   getScores: () => ({ p1: p1Score, p2: p2Score }),
   getGameMode: () => gameMode
 };
@@ -1249,6 +1464,26 @@ function animate() {
     }
 
     checkCombat(dt);
+
+    // CẬP NHẬT CÁC YẾU TỐ HỖN LOẠN (VỎ CHUỐI, SÉT ĐÁNH, GIÓ BÃO)
+    hazards.update(dt, [fighterP1, fighterP2]);
+
+    // CẬP NHẬT BANNER VÙNG VẪY THOÁT RA KHI BỊ VÁC
+    const struggleBanner = document.getElementById('struggle-banner');
+    if (struggleBanner) {
+      if (myFighter.isBeingHeld) {
+        struggleBanner.classList.remove('hidden');
+      } else {
+        struggleBanner.classList.add('hidden');
+      }
+    }
+
+    // CẬP NHẬT NÚT TÚM / NÉM THEO TRẠNG THÁI
+    if (myFighter.isHoldingEnemy) {
+      updateGrabUI(true);
+    } else if (!myFighter.isBeingHeld) {
+      updateGrabUI(false);
+    }
   }
 
   // Camera Shake & LookAt
