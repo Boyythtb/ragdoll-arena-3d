@@ -1,4 +1,6 @@
-export function showToast(message, type = 'info', duration = 2800) {
+let currentToastTimer = null;
+
+export function showToast(message, type = 'info', duration = 2000) {
   let container = document.getElementById('game-toast-container');
   if (!container) {
     container = document.createElement('div');
@@ -6,6 +8,10 @@ export function showToast(message, type = 'info', duration = 2800) {
     container.className = 'game-toast-container';
     document.body.appendChild(container);
   }
+
+  // Luôn xóa thông báo cũ ngay lập tức, không bao giờ xếp chồng làm che màn hình
+  if (currentToastTimer) clearTimeout(currentToastTimer);
+  container.innerHTML = '';
 
   const icons = {
     success: '🎉',
@@ -27,11 +33,11 @@ export function showToast(message, type = 'info', duration = 2800) {
     toast.classList.add('show');
   });
 
-  setTimeout(() => {
+  currentToastTimer = setTimeout(() => {
     toast.classList.remove('show');
     toast.classList.add('hide');
     setTimeout(() => {
       if (toast.parentElement) toast.parentElement.removeChild(toast);
-    }, 300);
+    }, 250);
   }, duration);
 }

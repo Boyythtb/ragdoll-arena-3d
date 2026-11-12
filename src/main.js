@@ -99,11 +99,15 @@ const particles = new ParticleFX(scene);
 // HỆ THỐNG YẾU TỐ HỖN LOẠN (VỎ CHUỐI, SÉT ĐÁNH, GIÓ BÃO)
 const hazards = new HazardsManager(scene, sounds, particles);
 const windBanner = document.getElementById('wind-banner');
+let windHideTimer = null;
 hazards.onWindCallback = (evt) => {
   if (!windBanner) return;
   if (evt === 'start') {
     windBanner.classList.remove('hidden');
-    setTimeout(() => windBanner.classList.add('hidden'), 4000);
+    clearTimeout(windHideTimer);
+    windHideTimer = setTimeout(() => windBanner.classList.add('hidden'), 1500);
+  } else {
+    windBanner.classList.add('hidden');
   }
 };
 hazards.onLightningCallback = (evt) => {
@@ -402,12 +406,9 @@ function handleGrab() {
       sounds.playGrab();
       myFighter.liftAndHold(opponent);
       updateGrabUI(true);
-      showToast('Đã túm được đối thủ! Chạy ra mép đài ném đi!', 'info', 2000);
       if (gameMode === 'ONLINE') {
         ragdollMP.sendAction('grab');
       }
-    } else {
-      showToast('Hãy lại gần đối thủ hơn để túm!', 'warning', 1200);
     }
   }
 }
@@ -425,7 +426,6 @@ function handlePunch() {
     if (activeFighter.struggleCount >= 5) {
       activeFighter.struggleBreak();
       sounds.playBoing();
-      showToast('Bạn đã vùng vẫy thoát hiểm thành công!', 'success');
       updateGrabUI(false);
       const struggleBanner = document.getElementById('struggle-banner');
       if (struggleBanner) struggleBanner.classList.add('hidden');
@@ -487,7 +487,6 @@ function updateBotAI(dt) {
         fighterP2.struggleBreak();
         sounds.playBoing();
         updateGrabUI(false);
-        showToast('Đối thủ đã vùng vẫy thoát khỏi tay bạn!', 'warning');
       }
     }
     return moveInput;
@@ -533,7 +532,6 @@ function updateBotAI(dt) {
     sounds.playGrab();
     fighterP2.liftAndHold(fighterP1);
     fighterP2.botCarryTimer = 0;
-    showToast('Bạn đã bị Bot túm lên đầu! Bấm ĐẤM liên tục để thoát!', 'warning', 2500);
     return moveInput;
   }
 
@@ -900,7 +898,6 @@ ragdollMP.on('game_start', (data) => {
     if (data.players.p1.color) fighterP1.setColor(data.players.p1.color);
     if (data.players.p2.color) fighterP2.setColor(data.players.p2.color);
   }
-  showToast('Đô vật đã sẵn sàng! Trận đấu bắt đầu!', 'success');
 });
 
 ragdollMP.on('room_updated', (data) => {
@@ -1021,7 +1018,6 @@ ragdollMP.on('opponent_action', (data) => {
   if (data.type === 'grab') {
     sounds.playGrab();
     opp.liftAndHold(me);
-    showToast('Bạn đã bị đối thủ túm lên đầu! Bấm ĐẤM liên tục để thoát!', 'warning', 2500);
   } else if (data.type === 'throw') {
     sounds.playThrow();
     opp.throwEnemy();
@@ -1030,7 +1026,6 @@ ragdollMP.on('opponent_action', (data) => {
     sounds.playBoing();
     opp.struggleBreak();
     updateGrabUI(false);
-    showToast('Đối thủ đã vùng vẫy thoát khỏi tay bạn!', 'warning');
   }
 });
 
@@ -1084,7 +1079,6 @@ document.getElementById('btn-play-ai').addEventListener('click', () => {
   document.getElementById('hud-p2-name').innerText = 'BOT';
   resetMatch();
   enterMatchUI();
-  showToast('Bắt đầu đấu với Bot!', 'info');
 });
 
 // ONLINE MENU MODAL & PHÒNG CHỜ VIP
