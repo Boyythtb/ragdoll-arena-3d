@@ -5,26 +5,17 @@ import {
   set,
   get,
   update,
-  onValue,
-  off,
   remove,
+  onValue,
   onDisconnect
 } from 'firebase/database';
 
-export const firebaseConfig = {
-  projectId: "birdie-bash-3d-2026",
-  appId: "1:962511515177:web:54bba507b47807d7b8f638",
-  databaseURL: "https://birdie-bash-3d-2026-default-rtdb.asia-southeast1.firebasedatabase.app",
-  storageBucket: "birdie-bash-3d-2026.firebasestorage.app",
-  apiKey: "AIzaSyBjRj4Z9vGA_phvyqfnGRB3_P5RNMx8EfQ",
-  authDomain: "birdie-bash-3d-2026.firebaseapp.com",
-  messagingSenderId: "962511515177"
+const firebaseConfig = {
+  databaseURL: "https://birdie-bash-3d-2026-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getDatabase(app);
-
-export const myClientId = 'user_' + Math.random().toString(36).substring(2, 9);
+const db = getDatabase(app);
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -35,17 +26,19 @@ function generateRoomCode() {
   return code;
 }
 
+const myClientId = 'ragdoll_' + Math.random().toString(36).substring(2, 9);
+
 export class RagdollMultiplayer {
   constructor() {
     this.currentRoomCode = null;
-    this.myRole = 'p1'; // 'p1' (Host) hoặc 'p2' (Guest)
+    this.myRole = null; // 'p1' (Host) hoặc 'p2' (Guest)
     this.roomRef = null;
     this.callbacks = {};
     this.unsubscribers = [];
     this.lastSent = 0;
-    this.gameStartedEmitted = false;
     this.lastHitTs = 0;
     this.lastRoundId = 0;
+    this.gameStartedEmitted = false;
   }
 
   on(event, cb) {
@@ -55,7 +48,9 @@ export class RagdollMultiplayer {
 
   emit(event, data) {
     if (this.callbacks[event]) {
-      this.callbacks[event].forEach(cb => cb(data));
+      this.callbacks[event].forEach(cb => {
+        try { cb(data); } catch (e) { console.error(e); }
+      });
     }
   }
 
@@ -91,12 +86,12 @@ export class RagdollMultiplayer {
     const initialData = {
       meta: {
         code: roomCode,
-        state: 'WAITING',
+        state: 'WAITING', // WAITING -> PLAYING
         targetScore: 5,
         createdAt: Date.now()
       },
       players: {
-        p1: { id: myClientId, name: playerName || 'Đô Vật 1', color: colorHex, role: 'p1' }
+        p1: { id: myClientId, name: playerName || 'Đô Vật 1', color: colorHex, role: 'p1', ready: false }
       },
       roundState: {
         scores: { p1: 0, p2: 0 },
@@ -104,8 +99,8 @@ export class RagdollMultiplayer {
         roundId: 0
       },
       positions: {
-        p1: { x: -3.2, y: 0, z: 0, rotY: Math.PI / 2, isPunching: false, isRagdoll: false, isSprinting: false, isFallingOff: false },
-        p2: { x: 3.2, y: 0, z: 0, rotY: -Math.PI / 2, isPunching: false, isRagdoll: false, isSprinting: false, isFallingOff: false }
+        p1: { x: -3.2, y: 0, z: 0, rotY: 1.57, isPunching: false, isRagdoll: false, isSprinting: false, isFallingOff: false },
+        p2: { x: 3.2, y: 0, z: 0, rotY: -1.57, isPunching: false, isRagdoll: false, isSprinting: false, isFallingOff: false }
       }
     };
 
@@ -139,9 +134,9 @@ export class RagdollMultiplayer {
     this.myRole = 'p2';
     this.roomRef = rRef;
 
+    // Giữ state là WAITING để cả 2 cùng bấm SẴN SÀNG
     await update(ref(db, `ragdoll_rooms/${code}`), {
-      'players/p2': { id: myClientId, name: playerName || 'Đô Vật 2', color: colorHex, role: 'p2' },
-      'meta/state': 'PLAYING'
+      'players/p2': { id: myClientId, name: playerName || 'Đô Vật 2', color: colorHex, role: 'p2', ready: false }
     });
 
     onDisconnect(ref(db, `ragdoll_rooms/${code}/players/p2`)).remove();
@@ -149,11 +144,25 @@ export class RagdollMultiplayer {
     return { roomCode: code, role: 'p2' };
   }
 
+  // BẬT / TẮT TRẠNG THÁI SẴN SÀNG (READY)
+  async toggleReady(isReady) {
+    if (!this.currentRoomCode || !this.myRole) return;
+    await set(ref(db, `ragdoll_rooms/${this.currentRoomCode}/players/${this.myRole}/ready`), isReady);
+  }
+
+  // CHỦ PHÒNG (P1) BẮT ĐẦU TRẬN ĐẤU KHI CẢ 2 ĐÃ SẴN SÀNG
+  async startMatch() {
+    if (!this.currentRoomCode || this.myRole !== 'p1') return;
+    await update(ref(db, `ragdoll_rooms/${this.currentRoomCode}/meta`), {
+      state: 'PLAYING'
+    });
+  }
+
   listenToRoom() {
     if (!this.currentRoomCode) return;
     const code = this.currentRoomCode;
 
-    // 1. Chỉ lắng nghe meta (WAITING -> PLAYING -> Xóa phòng) - KHÔNG bị kích hoạt khi di chuyển
+    // 1. Lắng nghe meta (WAITING -> PLAYING)
     const metaRef = ref(db, `ragdoll_rooms/${code}/meta`);
     const unsubMeta = onValue(metaRef, async (snap) => {
       if (!snap.exists()) {
@@ -174,7 +183,7 @@ export class RagdollMultiplayer {
     });
     this.unsubscribers.push(unsubMeta);
 
-    // 2. Lắng nghe thay đổi người chơi (VD: P2 rời phòng)
+    // 2. Lắng nghe thay đổi người chơi (Slot, Ready status, Disconnect)
     const playersRef = ref(db, `ragdoll_rooms/${code}/players`);
     const unsubPlayers = onValue(playersRef, (snap) => {
       if (!snap.exists()) {
@@ -184,13 +193,15 @@ export class RagdollMultiplayer {
         return;
       }
       const players = snap.val();
+      this.emit('room_updated', { players });
+
       if (this.gameStartedEmitted && (!players.p1 || !players.p2)) {
         this.emit('player_disconnected', {});
       }
     });
     this.unsubscribers.push(unsubPlayers);
 
-    // 3. Lắng nghe vị trí riêng của đối thủ (Băng thông siêu nhẹ, không spam toàn phòng)
+    // 3. Lắng nghe vị trí riêng của đối thủ (20Hz lerp)
     const oppKey = this.myRole === 'p1' ? 'p2' : 'p1';
     const oppPosRef = ref(db, `ragdoll_rooms/${code}/positions/${oppKey}`);
     const unsubOpp = onValue(oppPosRef, (snap) => {
@@ -227,11 +238,11 @@ export class RagdollMultiplayer {
     this.unsubscribers.push(unsubRound);
   }
 
-  // Gửi trạng thái nhân vật (~30Hz, có đủ isSprinting, isFallingOff)
+  // Gửi trạng thái nhân vật (~20Hz = 50ms, cực kỳ mượt mà, không nghẽn mạng)
   sendState(stateData) {
     if (!this.currentRoomCode || !this.gameStartedEmitted) return;
     const now = performance.now();
-    if (now - this.lastSent < 33) return;
+    if (now - this.lastSent < 50) return;
     this.lastSent = now;
 
     set(ref(db, `ragdoll_rooms/${this.currentRoomCode}/positions/${this.myRole}`), {

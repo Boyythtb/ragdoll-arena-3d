@@ -69,15 +69,15 @@ scene.add(hemiLight);
 const mainLight = new THREE.DirectionalLight(0xffedd5, 1.75);
 mainLight.position.set(12, 28, 10);
 mainLight.castShadow = true;
-mainLight.shadow.mapSize.width = 2048;
-mainLight.shadow.mapSize.height = 2048;
+mainLight.shadow.mapSize.width = 1024;
+mainLight.shadow.mapSize.height = 1024;
 mainLight.shadow.camera.near = 1;
-mainLight.shadow.camera.far = 70;
-mainLight.shadow.camera.left = -18;
-mainLight.shadow.camera.right = 18;
-mainLight.shadow.camera.top = 18;
-mainLight.shadow.camera.bottom = -18;
-mainLight.shadow.bias = -0.0003;
+mainLight.shadow.camera.far = 65;
+mainLight.shadow.camera.left = -11;
+mainLight.shadow.camera.right = 11;
+mainLight.shadow.camera.top = 11;
+mainLight.shadow.camera.bottom = -11;
+mainLight.shadow.bias = -0.0004;
 scene.add(mainLight);
 
 const fillLight = new THREE.DirectionalLight(0xbae6fd, 0.7);
@@ -105,7 +105,7 @@ function updateCameraTarget() {
   camera.updateProjectionMatrix();
 
   renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
 
   if (gameMode === 'MENU') {
     // TRANG CHỜ LOBBY: Góc nghiêng 3/4 Isometric đẩy sàn đấu sang phải một chút để nhường chỗ cột Menu bên trái
@@ -483,8 +483,8 @@ function checkRopes(fighter) {
     if (pos.z < -bound) { pos.z = -bound; touched = true; }
 
     if (touched) {
-      fighter.velocity.x *= -0.5;
-      fighter.velocity.z *= -0.5;
+      fighter.velocity.x *= -0.4;
+      fighter.velocity.z *= -0.4;
     }
     return;
   }
@@ -492,17 +492,24 @@ function checkRopes(fighter) {
   const isOutside = Math.abs(pos.x) > bound || Math.abs(pos.z) > bound;
   if (isOutside) {
     const horizSpeed = Math.hypot(fighter.velocity.x, fighter.velocity.z);
-    if (horizSpeed > 4.0 || pos.y > 0.35) {
+    if (horizSpeed > 3.8 || pos.y > 0.35) {
       fighter.isFallingOff = true;
       sounds.playBoing();
       particles.createPunchStars(pos.x, 1.2, pos.z, 14);
       screenShake = 0.22;
       return;
     } else {
-      if (pos.x > bound) { pos.x = bound; fighter.velocity.x = -Math.abs(fighter.velocity.x) * 1.2 - 2; }
-      if (pos.x < -bound) { pos.x = -bound; fighter.velocity.x = Math.abs(fighter.velocity.x) * 1.2 + 2; }
-      if (pos.z > bound) { pos.z = bound; fighter.velocity.z = -Math.abs(fighter.velocity.z) * 1.2 - 2; }
-      if (pos.z < -bound) { pos.z = -bound; fighter.velocity.z = Math.abs(fighter.velocity.z) * 1.2 + 2; }
+      // Phản hồi đàn hồi mượt mà hướng vào tâm võ đài (chống kẹt góc)
+      const toCenterX = -Math.sign(pos.x);
+      const toCenterZ = -Math.sign(pos.z);
+      if (Math.abs(pos.x) > bound) {
+        pos.x = Math.sign(pos.x) * bound;
+        fighter.velocity.x = toCenterX * Math.max(Math.abs(fighter.velocity.x) * 0.85, 3.5);
+      }
+      if (Math.abs(pos.z) > bound) {
+        pos.z = Math.sign(pos.z) * bound;
+        fighter.velocity.z = toCenterZ * Math.max(Math.abs(fighter.velocity.z) * 0.85, 3.5);
+      }
       sounds.playBoing();
     }
   }
@@ -685,12 +692,11 @@ function backToMenu() {
 
 // REALTIME FIREBASE MULTIPLAYER LISTENERS
 ragdollMP.on('game_start', (data) => {
-  document.getElementById('modal-online-menu').classList.add('hidden');
-  document.getElementById('modal-create-room').classList.add('hidden');
-  document.getElementById('modal-join-room').classList.add('hidden');
+  document.getElementById('modal-online').classList.add('hidden');
   gameMode = 'ONLINE';
   currentRoundId = 0;
   oppTargetState.hasTarget = false;
+  isMyReady = false;
   resetMatch();
   enterMatchUI();
 
@@ -700,8 +706,95 @@ ragdollMP.on('game_start', (data) => {
     if (data.players.p1.color) fighterP1.setColor(data.players.p1.color);
     if (data.players.p2.color) fighterP2.setColor(data.players.p2.color);
   }
-  showToast('Đối thủ đã lên đài! Bắt đầu chiến!', 'success');
+  showToast('Đô vật đã sẵn sàng! Trận đấu bắt đầu!', 'success');
 });
+
+ragdollMP.on('room_updated', (data) => {
+  renderRoomSlots(data.players);
+});
+
+function renderRoomSlots(players) {
+  const container = document.getElementById('room-players-container');
+  if (!container) return;
+  const p1 = players ? players.p1 : null;
+  const p2 = players ? players.p2 : null;
+
+  let html = '';
+  // Slot P1 (Host)
+  if (p1) {
+    const isMe = myRole === 'p1';
+    const readyClass = p1.ready ? 'ready' : '';
+    const badgeClass = p1.ready ? 'ready' : 'wait';
+    const badgeText = p1.ready ? 'ĐÃ SẴN SÀNG ✅' : 'CHƯA SẴN SÀNG ⏳';
+    html += `
+      <div class="room-slot ${readyClass}">
+        <div class="slot-avatar">🥊</div>
+        <div class="slot-text">
+          <span class="slot-name">${p1.name} ${isMe ? '(BẠN)' : ''}</span>
+          <span class="slot-role host">★ CHỦ PHÒNG (P1)</span>
+        </div>
+        <span class="slot-badge ${badgeClass}">${badgeText}</span>
+      </div>
+    `;
+  }
+
+  // Slot P2 (Guest)
+  if (p2) {
+    const isMe = myRole === 'p2';
+    const readyClass = p2.ready ? 'ready' : '';
+    const badgeClass = p2.ready ? 'ready' : 'wait';
+    const badgeText = p2.ready ? 'ĐÃ SẴN SÀNG ✅' : 'CHƯA SẴN SÀNG ⏳';
+    html += `
+      <div class="room-slot ${readyClass}">
+        <div class="slot-avatar">🤼</div>
+        <div class="slot-text">
+          <span class="slot-name">${p2.name} ${isMe ? '(BẠN)' : ''}</span>
+          <span class="slot-role">ĐẤU THỦ (P2)</span>
+        </div>
+        <span class="slot-badge ${badgeClass}">${badgeText}</span>
+      </div>
+    `;
+  } else {
+    html += `
+      <div class="room-slot empty">
+        <div class="slot-avatar">⏳</div>
+        <div class="slot-text">
+          <span class="slot-name">Đang chờ bạn bè tham gia...</span>
+          <span class="slot-role">Quét QR hoặc nhập mã PIN</span>
+        </div>
+        <span class="slot-badge wait">CHỜ...</span>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+
+  // Kiểm tra điều kiện bắt đầu trận đấu
+  const bothReady = p1 && p2 && p1.ready && p2.ready;
+  const hostStartBtn = document.getElementById('btn-host-start');
+  const statusNote = document.getElementById('room-status-note');
+
+  if (bothReady) {
+    if (myRole === 'p1') {
+      hostStartBtn.classList.remove('hidden');
+      statusNote.innerText = 'Cả 2 đã sẵn sàng! Bấm nút bên dưới để lên đài ngay!';
+      statusNote.style.color = '#16a34a';
+    } else {
+      hostStartBtn.classList.add('hidden');
+      statusNote.innerText = 'Cả 2 đã sẵn sàng! Đang chờ chủ phòng bấm bắt đầu...';
+      statusNote.style.color = '#16a34a';
+    }
+  } else {
+    hostStartBtn.classList.add('hidden');
+    if (p2) {
+      statusNote.innerText = 'Đang chờ cả 2 cùng bấm SẴN SÀNG...';
+      statusNote.style.color = '#ea580c';
+    } else {
+      statusNote.innerText = 'Đang chờ bạn bè quét QR hoặc nhập mã...';
+      statusNote.style.color = '#ea580c';
+    }
+  }
+}
 
 ragdollMP.on('opponent_state', (data) => {
   const opp = myRole === 'p1' ? fighterP2 : fighterP1;
@@ -780,65 +873,145 @@ document.getElementById('btn-play-ai').addEventListener('click', () => {
   showToast('Bắt đầu đấu với Bot!', 'info');
 });
 
-// ONLINE MENU MODAL
-const modalOnlineMenu = document.getElementById('modal-online-menu');
+// ONLINE MENU MODAL & PHÒNG CHỜ VIP
+const modalOnline = document.getElementById('modal-online');
+const onlineViewLobby = document.getElementById('online-view-lobby');
+const onlineViewRoom = document.getElementById('online-view-room');
+let isMyReady = false;
+
 document.getElementById('btn-menu-online').addEventListener('click', () => {
   sounds.playClick();
-  modalOnlineMenu.classList.remove('hidden');
-});
-document.getElementById('btn-close-online-menu').addEventListener('click', () => {
-  sounds.playClick();
-  modalOnlineMenu.classList.add('hidden');
+  onlineViewLobby.classList.remove('hidden');
+  onlineViewRoom.classList.add('hidden');
+  modalOnline.classList.remove('hidden');
 });
 
-document.getElementById('btn-open-create-room').addEventListener('click', async () => {
+document.getElementById('btn-close-online').addEventListener('click', () => {
   sounds.playClick();
-  modalOnlineMenu.classList.add('hidden');
+  modalOnline.classList.add('hidden');
+});
+
+function openRoomView(code) {
+  roomCode = code;
+  document.getElementById('display-room-code').innerText = code;
+  const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${code}`;
+  const qrImg = document.getElementById('room-qr-img');
+  if (qrImg) {
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(inviteUrl)}&color=0f172a&bgcolor=ffffff`;
+  }
+  isMyReady = false;
+  const btnRoomReady = document.getElementById('btn-room-ready');
+  const txtRoomReady = document.getElementById('txt-room-ready');
+  if (txtRoomReady) txtRoomReady.innerText = 'SẴN SÀNG CHIẾN ĐẤU 🔥';
+  if (btnRoomReady) btnRoomReady.style.background = '';
+
+  onlineViewLobby.classList.add('hidden');
+  onlineViewRoom.classList.remove('hidden');
+}
+
+// TẠO PHÒNG
+const handleCreateRoom = async () => {
+  sounds.playClick();
   requestLandscape();
   try {
     const res = await ragdollMP.createRoom(playerName, playerColorHex);
-    roomCode = res.roomCode;
     myRole = 'p1';
-    document.getElementById('label-room-code').innerText = roomCode;
-    document.getElementById('modal-create-room').classList.remove('hidden');
+    openRoomView(res.roomCode);
+    renderRoomSlots({ p1: { name: playerName, ready: false } });
   } catch (e) {
     showToast('Lỗi tạo phòng: ' + e.message, 'error');
   }
+};
+
+document.getElementById('card-create-room').addEventListener('click', handleCreateRoom);
+document.getElementById('btn-opt-create').addEventListener('click', (e) => {
+  e.stopPropagation();
+  handleCreateRoom();
 });
 
-document.getElementById('btn-cancel-create').addEventListener('click', () => {
-  sounds.playClick();
-  document.getElementById('modal-create-room').classList.add('hidden');
-  ragdollMP.leaveRoom();
-});
-
-document.getElementById('btn-open-join-room').addEventListener('click', () => {
-  sounds.playClick();
-  modalOnlineMenu.classList.add('hidden');
+// VÀO PHÒNG BẰNG MÃ
+async function doJoinRoom(code) {
   requestLandscape();
-  document.getElementById('modal-join-room').classList.remove('hidden');
-});
+  try {
+    const res = await ragdollMP.joinRoom(code, playerName, playerColorHex);
+    myRole = 'p2';
+    openRoomView(res.roomCode);
+  } catch (e) {
+    showToast(e.message || 'Lỗi tham gia phòng!', 'error');
+  }
+}
 
-document.getElementById('btn-cancel-join').addEventListener('click', () => {
+document.getElementById('btn-join-room').addEventListener('click', () => {
   sounds.playClick();
-  document.getElementById('modal-join-room').classList.add('hidden');
-});
-
-document.getElementById('btn-confirm-join').addEventListener('click', async () => {
-  sounds.playClick();
-  const code = document.getElementById('input-join-code').value.trim();
+  const inputEl = document.getElementById('room-code-input');
+  const code = inputEl ? inputEl.value.trim().toUpperCase() : '';
   if (!code) {
     showToast('Vui lòng nhập mã phòng!', 'warning');
     return;
   }
-  try {
-    const res = await ragdollMP.joinRoom(code, playerName, playerColorHex);
-    roomCode = res.roomCode;
-    myRole = 'p2';
-  } catch (e) {
-    showToast(e.message || 'Lỗi tham gia phòng!', 'error');
+  doJoinRoom(code);
+});
+
+// NÚT SẴN SÀNG (READY)
+const btnRoomReady = document.getElementById('btn-room-ready');
+const txtRoomReady = document.getElementById('txt-room-ready');
+btnRoomReady.addEventListener('click', () => {
+  sounds.playClick();
+  isMyReady = !isMyReady;
+  ragdollMP.toggleReady(isMyReady);
+  if (isMyReady) {
+    txtRoomReady.innerText = 'HỦY SẴN SÀNG ⏳';
+    btnRoomReady.style.background = 'linear-gradient(135deg, #64748b, #475569)';
+  } else {
+    txtRoomReady.innerText = 'SẴN SÀNG CHIẾN ĐẤU 🔥';
+    btnRoomReady.style.background = '';
   }
 });
+
+// NÚT BẮT ĐẦU TRANH TÀI (DÀNH CHO CHỦ PHÒNG KHI CẢ 2 SẴN SÀNG)
+document.getElementById('btn-host-start').addEventListener('click', () => {
+  sounds.playClick();
+  ragdollMP.startMatch();
+});
+
+// CHÉP MÃ & CHÉP LINK MỜI BẠN BÈ
+document.getElementById('btn-copy-code-only').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!roomCode || roomCode === '----') return;
+  navigator.clipboard.writeText(roomCode);
+  showToast(`Đã sao chép mã phòng: ${roomCode}`, 'success');
+});
+
+document.getElementById('btn-copy-invite-link').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!roomCode || roomCode === '----') return;
+  const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+  navigator.clipboard.writeText(inviteUrl);
+  showToast('Đã sao chép link mời bạn bè!', 'success');
+});
+
+// RỜI PHÒNG
+document.getElementById('btn-leave-room').addEventListener('click', () => {
+  sounds.playClick();
+  ragdollMP.leaveRoom();
+  isMyReady = false;
+  txtRoomReady.innerText = 'SẴN SÀNG CHIẾN ĐẤU 🔥';
+  btnRoomReady.style.background = '';
+  onlineViewRoom.classList.add('hidden');
+  onlineViewLobby.classList.remove('hidden');
+});
+
+// TỰ ĐỘNG VÀO PHÒNG KHI BẤM LINK MỜI CÓ ?room=CODE
+const urlParams = new URLSearchParams(window.location.search);
+const inviteRoomParam = urlParams.get('room');
+if (inviteRoomParam) {
+  const cleanCode = inviteRoomParam.toUpperCase().trim();
+  setTimeout(() => {
+    modalOnline.classList.remove('hidden');
+    document.getElementById('room-code-input').value = cleanCode;
+    doJoinRoom(cleanCode);
+  }, 600);
+}
 
 document.getElementById('btn-exit-match').addEventListener('click', () => {
   sounds.playClick();
@@ -920,6 +1093,7 @@ function dismissSplash() {
         if (splash) {
           splash.classList.add('fade-out');
           setTimeout(() => {
+            splash.classList.add('hidden');
             splash.style.display = 'none';
           }, 350);
         }

@@ -795,12 +795,592 @@ html, body {
   position: absolute;
   inset: 0;
   z-index: 90;
-  background: rgba(30, 27, 75, 0.4);
+  background: rgba(30, 27, 75, 0.45);
   backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+/* SẢNH ĐẤU MẠNG ONLINE (VIEW 1) */
+.online-modal-box {
+  background: #ffffff;
+  border-radius: 26px;
+  padding: 20px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  animation: pop-modal 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-height: 94vh;
+  overflow-y: auto;
+}
+
+.online-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-with-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.modal-icon-badge {
+  font-size: 24px;
+  background: #e0f2fe;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.online-modal-title {
+  font-size: 17px;
+  font-weight: 950;
+  color: #0f172a;
+  margin: 0;
+}
+
+.online-modal-sub {
+  font-size: 11.5px;
+  color: #64748b;
+  margin: 2px 0 0;
+}
+
+.online-badge-row {
+  display: flex;
+  justify-content: center;
+  margin-top: -2px;
+}
+
+.online-mode-pill {
+  font-size: 11px;
+  font-weight: 850;
+  color: #0284c7;
+  background: #e0f2fe;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  border: 1px solid #bae6fd;
+}
+
+.online-options-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.online-action-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: left;
+}
+
+.online-action-card:hover {
+  border-color: #38bdf8;
+  background: #f0f9ff;
+  transform: translateY(-1px);
+}
+
+.online-card-icon-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.online-card-icon-box.pink {
+  background: #ffe4e6;
+}
+
+.online-card-icon-box.blue {
+  background: #e0f2fe;
+}
+
+.online-card-body {
+  flex: 1;
+}
+
+.online-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.online-card-title {
+  font-size: 14px;
+  font-weight: 850;
+  color: #0f172a;
+  margin: 0;
+}
+
+.online-badge {
+  font-size: 9.5px;
+  font-weight: 850;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.online-badge.pink {
+  background: #ffe4e6;
+  color: #e11d48;
+}
+
+.online-badge.blue {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.online-card-desc {
+  font-size: 11px;
+  color: #64748b;
+  margin: 2px 0 0;
+}
+
+.online-card-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 850;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #ffffff;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.online-card-btn.pink {
+  background: linear-gradient(135deg, #fb7185, #f43f5e);
+  box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3);
+}
+
+.online-card-btn:hover {
+  transform: scale(1.05);
+}
+
+.join-code-card {
+  flex-direction: column;
+  align-items: stretch;
+  cursor: default;
+  gap: 10px;
+}
+
+.join-code-card:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  transform: none;
+}
+
+.join-header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.join-input-bar {
+  display: flex;
+  gap: 8px;
+}
+
+.room-code-input {
+  flex: 1;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-weight: 850;
+  color: #0f172a;
+  text-align: center;
+  letter-spacing: 3px;
+  outline: none;
+  text-transform: uppercase;
+}
+
+.room-code-input:focus {
+  border-color: #0284c7;
+}
+
+.btn-join-action {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+  transition: transform 0.15s ease;
+}
+
+.btn-join-action:hover {
+  transform: scale(1.05);
+}
+
+/* ===================================================
+   GIAO DIỆN PHÒNG CHỜ VIP (VIEW 2 - CÓ QR CODE & MÃ PHÒNG)
+   =================================================== */
+.online-room-box {
+  background: #ffffff;
+  border-radius: 26px;
+  padding: 18px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+  animation: pop-modal 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-height: 94vh;
+  overflow-y: auto;
+}
+
+.room-vip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.room-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room-live-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 10px #22c55e;
+  animation: pulse-live 1.5s infinite;
+}
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.room-mode-tag {
+  font-size: 12.5px;
+  font-weight: 850;
+  color: #0f172a;
+  letter-spacing: 0.5px;
+}
+
+.btn-room-leave {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-room-leave:hover {
+  background: #fca5a5;
+  color: #991b1b;
+}
+
+/* KHỐI MÃ PHÒNG & QR CODE */
+.room-invite-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1.5px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.room-code-badge-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.room-code-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 1px;
+}
+
+.room-code-display-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room-code-huge {
+  font-size: 28px;
+  font-weight: 950;
+  color: #0284c7;
+  letter-spacing: 4px;
+  background: #e0f2fe;
+  padding: 3px 16px;
+  border-radius: 12px;
+  border: 2px dashed #38bdf8;
+  font-family: monospace, sans-serif;
+}
+
+.btn-mini-copy {
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-mini-copy:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+/* QR SECTION */
+.room-qr-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  padding: 8px 12px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.room-qr-frame {
+  width: 72px;
+  height: 72px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.room-qr-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.room-qr-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  gap: 2px;
+}
+
+.qr-title {
+  font-size: 12px;
+  font-weight: 850;
+  color: #0f172a;
+}
+
+.qr-sub {
+  font-size: 10px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+/* NÚT COPY LINK VIP */
+.btn-copy-link-vip {
+  width: 100%;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.btn-copy-link-vip:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+.btn-copy-link-vip:active {
+  transform: scale(0.985);
+}
+
+.copy-link-icon {
+  font-size: 16px;
+}
+
+.copy-link-main {
+  font-size: 11.5px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  display: block;
+}
+
+.copy-link-sub {
+  font-size: 9.5px;
+  opacity: 0.9;
+  display: block;
+}
+
+.copy-link-tag {
+  font-size: 9.5px;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  margin-left: auto;
+}
+
+.room-status-bar {
+  text-align: center;
+  padding: 2px 0;
+}
+
+.room-status-note {
+  font-size: 11.5px;
+  font-weight: 850;
+  color: #ea580c;
+  margin: 0;
+}
+
+/* SLOTS NGƯỜI CHƠI */
+.room-players-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.room-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 8px 12px;
+}
+
+.room-slot.ready {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+
+.room-slot.empty {
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+.slot-avatar {
+  font-size: 20px;
+}
+
+.slot-text {
+  flex: 1;
+  text-align: left;
+}
+
+.slot-name {
+  font-size: 12.5px;
+  font-weight: 850;
+  color: #0f172a;
+  display: block;
+}
+
+.slot-role {
+  font-size: 9.5px;
+  color: #64748b;
+  display: block;
+}
+
+.slot-role.host {
+  color: #d97706;
+  font-weight: 750;
+}
+
+.slot-badge {
+  font-size: 10px;
+  font-weight: 900;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.slot-badge.ready {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.slot-badge.wait {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.room-bottom-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.pulse-start {
+  animation: pulse-start-btn 1.2s infinite ease-in-out;
+}
+
+@keyframes pulse-start-btn {
+  0%, 100% { transform: scale(1); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); }
+  50% { transform: scale(1.03); box-shadow: 0 0 24px rgba(16, 185, 129, 0.8); }
 }
 
 .tboy-dialog {
@@ -1159,5 +1739,141 @@ html, body {
   #ko-banner {
     font-size: 16px;
     padding: 12px 24px;
+  }
+
+  /* PHÒNG CHỜ VIP COMPACT TRÊN ĐIỆN THOẠI XOAY NGANG */
+  .online-room-box,
+  .online-modal-box {
+    padding: 8px 14px;
+    gap: 6px;
+    max-height: 98vh;
+    border-radius: 18px;
+  }
+
+  .room-vip-header {
+    padding-bottom: 2px;
+  }
+
+  .room-mode-tag {
+    font-size: 11px;
+  }
+
+  .btn-room-leave {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 8px;
+  }
+
+  .room-invite-card {
+    padding: 6px 10px;
+    gap: 5px;
+    border-radius: 12px;
+  }
+
+  .room-code-badge-wrap {
+    gap: 1px;
+  }
+
+  .room-code-label {
+    font-size: 8.5px;
+  }
+
+  .room-code-huge {
+    font-size: 20px;
+    padding: 1px 12px;
+    letter-spacing: 3px;
+    border-radius: 8px;
+  }
+
+  .btn-mini-copy {
+    padding: 3px 7px;
+    font-size: 9.5px;
+    border-radius: 6px;
+  }
+
+  .room-qr-section {
+    padding: 4px 8px;
+    gap: 8px;
+    border-radius: 8px;
+  }
+
+  .room-qr-frame {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    padding: 2px;
+  }
+
+  .qr-title {
+    font-size: 10.5px;
+  }
+
+  .qr-sub {
+    font-size: 8.5px;
+  }
+
+  .btn-copy-link-vip {
+    padding: 5px 10px;
+    border-radius: 8px;
+    gap: 6px;
+  }
+
+  .copy-link-icon {
+    font-size: 13px;
+  }
+
+  .copy-link-main {
+    font-size: 10.5px;
+  }
+
+  .copy-link-sub {
+    font-size: 8px;
+  }
+
+  .copy-link-tag {
+    font-size: 8.5px;
+    padding: 1px 5px;
+  }
+
+  .room-status-note {
+    font-size: 10.5px;
+  }
+
+  .room-players-slots {
+    gap: 4px;
+  }
+
+  .room-slot {
+    padding: 4px 8px;
+    gap: 8px;
+    border-radius: 8px;
+  }
+
+  .slot-avatar {
+    font-size: 15px;
+  }
+
+  .slot-name {
+    font-size: 11px;
+  }
+
+  .slot-role {
+    font-size: 8.5px;
+  }
+
+  .slot-badge {
+    font-size: 8.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .room-bottom-actions {
+    gap: 4px;
+  }
+
+  .room-bottom-actions .bb-pill-btn {
+    padding: 7px 10px !important;
+    font-size: 11.5px !important;
+    border-radius: 10px !important;
   }
 }

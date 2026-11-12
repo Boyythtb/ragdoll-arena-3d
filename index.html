@@ -192,48 +192,123 @@
         <span>💥</span> RING OUT!
       </div>
 
-      <!-- MODAL CHỌN ĐẤU MẠNG ONLINE -->
-      <div id="modal-online-menu" class="tboy-modal-overlay hidden">
-        <div class="tboy-dialog">
-          <div class="tips-dialog-header">
-            <div class="tboy-dialog-title">🌐 ĐẤU MẠNG ONLINE (1v1)</div>
-            <button class="tips-close-btn" id="btn-close-online-menu">✕</button>
+      <!-- MODAL ĐẤU MẠNG ONLINE (CHUẨN FORM BIRDIE BASH: SẢNH CHỌN & PHÒNG CHỜ VIP CÓ QR, LINK SHARE & SẴN SÀNG) -->
+      <div id="modal-online" class="tboy-modal-overlay hidden">
+        <!-- VIEW 1: SẢNH CHỌN TẠO HOẶC VÀO PHÒNG -->
+        <div id="online-view-lobby" class="online-modal-box">
+          <div class="online-modal-header">
+            <div class="header-with-badge">
+              <span class="modal-icon-badge">🌐</span>
+              <div>
+                <h3 class="online-modal-title">ĐẤU MẠNG ONLINE</h3>
+                <p class="online-modal-sub">Tranh tài thời gian thực cùng bạn bè</p>
+              </div>
+            </div>
+            <button id="btn-close-online" class="tips-close-btn" aria-label="Đóng">✕</button>
           </div>
-          <div class="tboy-dialog-sub">Kết nối Realtime qua Firebase · Chơi cùng bạn bè mọi nơi!</div>
-          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
-            <button class="bb-pill-btn active" id="btn-open-create-room" style="justify-content: center;">
-              <span>⚡ Tạo Phòng Mới (Nhận Mã PIN)</span>
-            </button>
-            <button class="bb-pill-btn cyan" id="btn-open-join-room" style="justify-content: center;">
-              <span>🔑 Nhập Mã Vào Phòng Bạn Bè</span>
-            </button>
+
+          <div class="online-badge-row">
+            <span class="online-mode-pill">🤼 ĐỐI ĐẦU 1v1 REALTIME</span>
+          </div>
+
+          <div class="online-options-stack">
+            <!-- CARD 1: TẠO PHÒNG THI ĐẤU -->
+            <div class="online-action-card" id="card-create-room" role="button" tabindex="0">
+              <div class="online-card-icon-box pink">🏠</div>
+              <div class="online-card-body">
+                <div class="online-card-title-row">
+                  <h4 class="online-card-title">Tạo Phòng Thi Đấu</h4>
+                  <span class="online-badge pink">Phòng riêng</span>
+                </div>
+                <p class="online-card-desc">Có mã phòng 4 chữ, mã QR & link mời bạn bè</p>
+              </div>
+              <button id="btn-opt-create" class="online-card-btn pink" aria-label="Tạo phòng">
+                <span>TẠO</span>
+                <span class="btn-arrow">➜</span>
+              </button>
+            </div>
+
+            <!-- CARD 2: VÀO BẰNG MÃ PHÒNG -->
+            <div class="online-action-card join-code-card">
+              <div class="join-header-row">
+                <div class="online-card-icon-box blue">🔑</div>
+                <div class="online-card-body">
+                  <div class="online-card-title-row">
+                    <h4 class="online-card-title">Vào Bằng Mã Phòng</h4>
+                    <span class="online-badge blue">Mã 4 ký tự</span>
+                  </div>
+                  <p class="online-card-desc">Nhập mã do bạn bè chia sẻ để tham gia</p>
+                </div>
+              </div>
+              <div class="join-input-bar">
+                <input type="text" id="room-code-input" class="room-code-input" placeholder="MÃ PHÒNG (VD: AB12)" maxlength="6" autocomplete="off" autocorrect="off" autocapitalize="characters" />
+                <button id="btn-join-room" class="btn-join-action">VÀO ➜</button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- MODAL TẠO PHÒNG -->
-      <div id="modal-create-room" class="tboy-modal-overlay hidden">
-        <div class="tboy-dialog">
-          <div class="tboy-dialog-title">TẠO PHÒNG REALTIME</div>
-          <div class="tboy-dialog-sub">Gửi mã phòng này cho bạn bè để cùng vào thi đấu:</div>
-          <div class="tboy-code-tag" id="label-room-code">----</div>
-          <div style="font-size: 13.5px; color: #0284c7; font-weight: 750;">Đang chờ đối thủ vào võ đài...</div>
-          <button class="bb-pill-btn glass" id="btn-cancel-create" style="justify-content: center; margin-top: 6px;">Hủy Phòng</button>
-        </div>
-      </div>
-
-      <!-- MODAL VÀO PHÒNG -->
-      <div id="modal-join-room" class="tboy-modal-overlay hidden">
-        <div class="tboy-dialog">
-          <div class="tboy-dialog-title">VÀO PHÒNG THI ĐẤU</div>
-          <div class="tboy-dialog-sub">Nhập mã PIN 4 ký tự do bạn bè chia sẻ:</div>
-          <div class="tboy-input-box">
-            <label class="tboy-input-label">Mã phòng</label>
-            <input type="text" id="input-join-code" class="tboy-input" placeholder="VD: ABCD" maxlength="6" style="text-transform: uppercase; font-size: 22px; text-align: center; letter-spacing: 5px;" />
+        <!-- VIEW 2: PHÒNG CHỜ VIP (CÓ QR CODE, LINK SHARE 1-CHẠM & NÚT SẴN SÀNG) -->
+        <div id="online-view-room" class="online-room-box hidden">
+          <div class="room-vip-header">
+            <div class="room-header-left">
+              <span class="room-live-dot"></span>
+              <span class="room-mode-tag">PHÒNG ĐẤU 1v1 REALTIME</span>
+            </div>
+            <button id="btn-leave-room" class="btn-room-leave">
+              <span>Rời phòng</span>
+              <span>✕</span>
+            </button>
           </div>
-          <div style="display: flex; gap: 10px; margin-top: 8px;">
-            <button class="bb-pill-btn glass" id="btn-cancel-join" style="flex: 1; justify-content: center;">Hủy</button>
-            <button class="bb-pill-btn active" id="btn-confirm-join" style="flex: 1; justify-content: center;">Vào Chiến 🥊</button>
+
+          <!-- KHỐI MÃ PHÒNG & QR CODE QUÉT VÀO SÂN -->
+          <div class="room-invite-card">
+            <div class="room-code-badge-wrap">
+              <span class="room-code-label">MÃ PHÒNG CỦA BẠN</span>
+              <div class="room-code-display-row">
+                <span id="display-room-code" class="room-code-huge">----</span>
+                <button id="btn-copy-code-only" class="btn-mini-copy" title="Sao chép mã">📋 Chép mã</button>
+              </div>
+            </div>
+
+            <!-- KHUNG MÃ QR CODE CHÍNH HÃNG -->
+            <div class="room-qr-section">
+              <div class="room-qr-frame">
+                <img id="room-qr-img" class="room-qr-img" src="" alt="Mã QR Phòng Đấu" />
+              </div>
+              <div class="room-qr-text">
+                <strong class="qr-title">📱 Quét QR để vào sân ngay</strong>
+                <span class="qr-sub">Mở Camera iPhone / Android hoặc Zalo quét mã này</span>
+              </div>
+            </div>
+
+            <!-- NÚT 1 CHẠM SAO CHÉP LINK MỜI BẠN BÈ -->
+            <button id="btn-copy-invite-link" class="btn-copy-link-vip">
+              <span class="copy-link-icon">🔗</span>
+              <div class="copy-link-text">
+                <span class="copy-link-main">SAO CHÉP LINK MỜI BẠN BÈ</span>
+                <span class="copy-link-sub">Bấm để gửi qua Zalo, Messenger, SMS</span>
+              </div>
+              <span class="copy-link-tag">1-CHẠM 📋</span>
+            </button>
+          </div>
+
+          <div class="room-status-bar">
+            <span id="room-status-note" class="room-status-note">Đang chờ bạn bè quét QR hoặc nhập mã...</span>
+          </div>
+
+          <!-- 2 KHUNG TUYỂN THỦ -->
+          <div class="room-players-slots" id="room-players-container">
+            <!-- Slot P1 & P2 render động -->
+          </div>
+
+          <div class="room-bottom-actions">
+            <button id="btn-room-ready" class="bb-pill-btn active" style="width: 100%; justify-content: center; font-size: 13.5px; padding: 11px;">
+              <span id="txt-room-ready">SẴN SÀNG CHIẾN ĐẤU 🔥</span>
+            </button>
+            <button id="btn-host-start" class="bb-pill-btn active pulse-start hidden" style="width: 100%; justify-content: center; font-size: 13.5px; padding: 11px; background: linear-gradient(135deg, #10b981, #059669);">
+              <span>BẮT ĐẦU TRANH TÀI NGAY ➜</span>
+            </button>
           </div>
         </div>
       </div>
